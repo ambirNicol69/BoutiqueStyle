@@ -1,0 +1,97 @@
+package com.sanvalero.boutiquestyle.ui.navigation
+
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.sanvalero.boutiquestyle.ui.screens.*
+
+private data class Destination(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+
+@Composable
+fun BoutiqueNavigation(viewModel: MainViewModel = hiltViewModel()) {
+    val user by viewModel.user.collectAsState()
+    val message by viewModel.message.collectAsState()
+    val navController = rememberNavController()
+    val destinations = listOf(
+        Destination("dashboard", "Inicio", Icons.Default.Home),
+        Destination("inventory", "Prendas", Icons.Default.Inventory2),
+        Destination("sales", "Ventas", Icons.AutoMirrored.Filled.ReceiptLong),
+        Destination("layaways", "Apartados", Icons.Default.Assessment),
+        Destination("more", "Más", Icons.Default.Settings)
+    )
+
+    LaunchedEffect(user) {
+        if (user != null) {
+            navController.navigate("dashboard") {
+                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    if (user == null) {
+        LoginScreen(onLogin = viewModel::login, viewModel = viewModel)
+    } else {
+        val currentEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = currentEntry?.destination?.route
+        Scaffold(
+            bottomBar = {
+                NavigationBar {
+                    destinations.forEach { destination ->
+                        NavigationBarItem(
+                            selected = currentRoute == destination.route,
+                            onClick = {
+                                navController.navigate(destination.route) {
+                                    popUpTo("dashboard") { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            icon = { Icon(destination.icon, contentDescription = destination.title) },
+                            label = { Text(destination.title) }
+                        )
+                    }
+                }
+            },
+            snackbarHost = { BoutiqueSnackbar(message, viewModel::clearMessage) }
+        ) { padding ->
+            NavHost(navController, startDestination = "dashboard", modifier = Modifier.padding(padding)) {
+                composable("dashboard") { DashboardScreen(viewModel) }
+                composable("inventory") { InventoryScreen(viewModel) }
+                composable("sales") { SalesScreen(viewModel) }
+                composable("layaways") { LayawaysScreen(viewModel) }
+                composable("more") {
+                    MoreScreen(
+                        userName = user?.name.orEmpty(),
+                        isAdmin = user?.role == "ADMIN",
+                        viewModel = viewModel,
+                        onLogout = {
+                            viewModel.logout()
+                        }
+                    )
+                }
+                composable("login") { LoginScreen(onLogin = viewModel::login, viewModel = viewModel) }
+            }
+        }
+    }
+}

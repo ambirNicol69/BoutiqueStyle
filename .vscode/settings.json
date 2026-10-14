@@ -1,0 +1,6 @@
+{
+  "files.eol": "\n",
+  "editor.formatOnSave": true,
+  "kotlin.languageServer.enabled": true,
+  "java.configuration.updateBuildConfiguration": "automatic"
+}
