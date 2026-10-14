@@ -1,3 +1,4 @@
+
 name: Generar APK Android
 
 on:
@@ -22,6 +23,13 @@ jobs:
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Revisar Gradle Wrapper
+        run: |
+          echo "Contenido inicial de gradlew:"
+          head -n 5 gradlew
+          echo "Tipo de archivo:"
+          file gradlew
+
       - name: Preparar compilación
         run: chmod +x gradlew
 
@@ -33,3 +41,4 @@ jobs:
         with:
           name: BoutiqueStyle-APK
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
