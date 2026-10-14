@@ -71,26 +71,57 @@ fun BoutiqueSnackbar(message: String?, clear: () -> Unit) {
 }
 
 @Composable
-fun DashboardScreen(viewModel: MainViewModel = hiltViewModel()) {
+fun DashboardScreen(viewModel: MainViewModel = hiltViewModel(), onOpenSales: () -> Unit = {}, onOpenInventory: () -> Unit = {}, onOpenRequests: () -> Unit = {}) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val pendingRequests = state.stockRequests.filter { it.status == "PENDING" }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 18.dp), contentPadding = PaddingValues(vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            Text("BoutiqueStyle", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("Tu resumen de hoy · ${formatDate(System.currentTimeMillis())}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Hola, Administrador", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text("Resumen de la tienda · ${formatDate(System.currentTimeMillis())}", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MetricCard("Ventas hoy", state.dashboard.daySales.toString(), Modifier.weight(1f))
-                    MetricCard("Ventas del mes", state.dashboard.monthSales.toString(), Modifier.weight(1f))
+                    MetricCard("Ventas del mes", formatCurrency(state.dashboard.monthIncome), Modifier.weight(1f))
+                    MetricCard("Pedidos", state.dashboard.monthSales.toString(), Modifier.weight(1f))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MetricCard("Apartados activos", state.dashboard.activeLayaways.toString(), Modifier.weight(1f))
-                    MetricCard("Stock bajo (≤ 3)", state.dashboard.lowStock.toString(), Modifier.weight(1f))
+                    MetricCard("Unidades en stock", state.variants.sumOf { it.stock }.toString(), Modifier.weight(1f))
+                    MetricCard("Solicitudes", pendingRequests.size.toString(), Modifier.weight(1f))
                 }
             }
         }
-        item { MetricCard("Ingresos del mes", formatCurrency(state.dashboard.monthIncome), Modifier.fillMaxWidth()) }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onOpenSales, modifier = Modifier.weight(1f)) { Text("Ver ventas") }
+                OutlinedButton(onClick = onOpenInventory, modifier = Modifier.weight(1f)) { Text("Gestionar stock") }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Solicitudes de reposición", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(if (pendingRequests.isEmpty()) "No hay solicitudes pendientes" else "${pendingRequests.size} por revisar", style = MaterialTheme.typography.bodySmall)
+                        }
+                        TextButton(onClick = onOpenRequests) { Text("Ver todas") }
+                    }
+                    pendingRequests.take(3).forEach { request ->
+                        val variant = state.variants.firstOrNull { it.id == request.variantId }
+                        val garment = state.garments.firstOrNull { it.id == variant?.garmentId }
+                        val employee = state.users.firstOrNull { it.id == request.employeeUserId }
+                        HorizontalDivider()
+                        Text("${garment?.name ?: "Prenda"} · ${variant?.size.orEmpty()} / ${variant?.color.orEmpty()} · ${request.quantity} unidades", fontWeight = FontWeight.Medium)
+                        Text("Solicita ${employee?.name ?: "Empleado"}", style = MaterialTheme.typography.bodySmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { viewModel.reviewStockRequest(request, approve = true) }) { Text("Aprobar") }
+                            OutlinedButton(onClick = { viewModel.reviewStockRequest(request, approve = false) }) { Text("Rechazar") }
+                        }
+                    }
+                }
+            }
+        }
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp)) {
@@ -557,13 +588,38 @@ private fun LayawayDialog(state: StoreUiState, viewModel: MainViewModel, dismiss
 }
 
 @Composable
-fun MoreScreen(userName: String, isAdmin: Boolean, viewModel: MainViewModel, onLogout: () -> Unit) {
+fun ReportsScreen(viewModel: MainViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var fromDate by remember { mutableStateOf("") }
+    var throughDate by remember { mutableStateOf("") }
     var reportMessage by remember { mutableStateOf<String?>(null) }
+    val filteredSales = remember(state.sales, fromDate, throughDate) {
+        state.sales.filter { it.saleDate.inDateRange(fromDate, throughDate) }
+    }
+    val filteredState = remember(state, filteredSales) {
+        state.copy(sales = filteredSales, saleItems = state.saleItems.filter { item -> filteredSales.any { it.id == item.saleId } })
+    }
+    LazyColumn(Modifier.fillMaxSize().padding(18.dp), contentPadding = PaddingValues(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { Text("Reportes", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("Consulta ventas e inventario por período.") }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InputField(fromDate, { fromDate = it }, "Desde dd/MM/yyyy", modifier = Modifier.weight(1f))
+                InputField(throughDate, { throughDate = it }, "Hasta dd/MM/yyyy", modifier = Modifier.weight(1f))
+            }
+        }
+        item { MetricCard("Ventas encontradas", filteredSales.size.toString(), Modifier.fillMaxWidth()) }
+        item { OutlinedButton(onClick = { runCatching { ReportExporter(context).stockReport(state) }.onSuccess { reportMessage = "Reporte de inventario guardado en Descargas." }.onFailure { reportMessage = it.message } }, modifier = Modifier.fillMaxWidth()) { Text("Reporte de stock · PDF") } }
+        item { Button(onClick = { runCatching { ReportExporter(context).salesReport(filteredState) }.onSuccess { reportMessage = "Ventas del período guardadas en PDF y CSV." }.onFailure { reportMessage = it.message } }, modifier = Modifier.fillMaxWidth()) { Text("Ventas por período · PDF + CSV") } }
+        item { OutlinedButton(onClick = { runCatching { ReportExporter(context).managementReport(filteredState) }.onSuccess { reportMessage = "Resumen gerencial guardado en Descargas." }.onFailure { reportMessage = it.message } }, modifier = Modifier.fillMaxWidth()) { Text("Resumen gerencial · PDF") } }
+        item { reportMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary) } }
+    }
+}
+
+@Composable
+fun MoreScreen(userName: String, isAdmin: Boolean, viewModel: MainViewModel, onOpenLayaways: () -> Unit = {}, onLogout: () -> Unit) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
     var confirmRestore by remember { mutableStateOf(false) }
-    var reportFromDate by remember { mutableStateOf("") }
-    var reportThroughDate by remember { mutableStateOf("") }
     var userToEdit by remember { mutableStateOf<UserEntity?>(null) }
     var showUserEditor by remember { mutableStateOf(false) }
     var userToDelete by remember { mutableStateOf<UserEntity?>(null) }
@@ -574,8 +630,17 @@ fun MoreScreen(userName: String, isAdmin: Boolean, viewModel: MainViewModel, onL
         if (uri != null) viewModel.importBackup(uri)
     }
     LazyColumn(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 12.dp)) {
-        item { Text("Más opciones", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("$userName · ${if (isAdmin) "ADMINISTRADORA" else "EMPLEADO"}") }
+        item { Text("Perfil", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("$userName · ${if (isAdmin) "ADMINISTRADORA" else "EMPLEADO"}") }
         if (isAdmin) {
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Administración", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("Gestiona prendas, variantes, ventas, apartados y cuentas desde las secciones de la barra inferior.", style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(onClick = onOpenLayaways, modifier = Modifier.fillMaxWidth()) { Text("Gestionar apartados") }
+                    }
+                }
+            }
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Usuarios", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
@@ -614,33 +679,6 @@ fun MoreScreen(userName: String, isAdmin: Boolean, viewModel: MainViewModel, onL
                 }
             }
         }
-        item { Text("Reportes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InputField(reportFromDate, { reportFromDate = it }, "Desde dd/MM/yyyy", modifier = Modifier.weight(1f))
-                InputField(reportThroughDate, { reportThroughDate = it }, "Hasta dd/MM/yyyy", modifier = Modifier.weight(1f))
-            }
-        }
-        item { OutlinedButton(onClick = { runCatching { ReportExporter(context).stockReport(state) }.onSuccess { reportMessage = "Inventario PDF guardado en Descargas." }.onFailure { reportMessage = it.message } }, modifier = Modifier.fillMaxWidth()) { Text("Inventario y variantes · PDF") } }
-        item {
-            OutlinedButton(onClick = {
-                val sales = state.sales.filter { it.saleDate.inDateRange(reportFromDate, reportThroughDate) }
-                val reportState = state.copy(sales = sales, saleItems = state.saleItems.filter { item -> sales.any { it.id == item.saleId } })
-                runCatching { ReportExporter(context).salesReport(reportState) }
-                    .onSuccess { reportMessage = "Reporte PDF y CSV guardados en Descargas." }
-                    .onFailure { reportMessage = it.message }
-            }, modifier = Modifier.fillMaxWidth()) { Text("Ventas por período · PDF + CSV") }
-        }
-        item {
-            OutlinedButton(onClick = {
-                val sales = state.sales.filter { it.saleDate.inDateRange(reportFromDate, reportThroughDate) }
-                val reportState = state.copy(sales = sales, saleItems = state.saleItems.filter { item -> sales.any { it.id == item.saleId } })
-                runCatching { ReportExporter(context).managementReport(reportState) }
-                    .onSuccess { reportMessage = "Resumen gerencial PDF guardado en Descargas." }
-                    .onFailure { reportMessage = it.message }
-            }, modifier = Modifier.fillMaxWidth()) { Text("Resumen gerencial · PDF") }
-        }
-        item { if (reportMessage != null) Text(reportMessage.orEmpty(), color = MaterialTheme.colorScheme.primary) }
         item { Text("Respaldo", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
         item { OutlinedButton(onClick = { backupPicker.launch("boutiquestyle-backup.db") }, modifier = Modifier.fillMaxWidth()) { Text("Exportar respaldo SQLite") } }
         item { OutlinedButton(onClick = { confirmRestore = true }, modifier = Modifier.fillMaxWidth()) { Text("Importar respaldo SQLite") } }

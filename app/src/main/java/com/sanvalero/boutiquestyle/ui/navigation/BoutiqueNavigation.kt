@@ -5,8 +5,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -38,10 +38,10 @@ fun BoutiqueNavigation(viewModel: MainViewModel = hiltViewModel()) {
     var customerMode by remember { mutableStateOf(false) }
     val destinations = listOf(
         Destination("dashboard", "Inicio", Icons.Default.Home),
-        Destination("inventory", "Prendas", Icons.Default.Inventory2),
         Destination("sales", "Ventas", Icons.AutoMirrored.Filled.ReceiptLong),
-        Destination("layaways", "Apartados", Icons.Default.Assessment),
-        Destination("more", "Más", Icons.Default.Settings)
+        Destination("inventory", "Stock", Icons.Default.Inventory2),
+        Destination("reports", "Reportes", Icons.Default.Assessment),
+        Destination("more", "Perfil", Icons.Default.Person)
     )
 
     LaunchedEffect(user) {
@@ -84,15 +84,19 @@ fun BoutiqueNavigation(viewModel: MainViewModel = hiltViewModel()) {
             snackbarHost = { BoutiqueSnackbar(message, viewModel::clearMessage) }
         ) { padding ->
             NavHost(navController, startDestination = "dashboard", modifier = Modifier.padding(padding)) {
-                composable("dashboard") { DashboardScreen(viewModel) }
+                composable("dashboard") {
+                    DashboardScreen(viewModel, onOpenSales = { navController.navigate("sales") }, onOpenInventory = { navController.navigate("inventory") }, onOpenRequests = { navController.navigate("more") })
+                }
                 composable("inventory") { InventoryScreen(viewModel) }
                 composable("sales") { SalesScreen(viewModel) }
                 composable("layaways") { LayawaysScreen(viewModel) }
+                composable("reports") { ReportsScreen(viewModel) }
                 composable("more") {
                     MoreScreen(
                         userName = user?.name.orEmpty(),
                         isAdmin = user?.role == "ADMIN",
                         viewModel = viewModel,
+                        onOpenLayaways = { navController.navigate("layaways") },
                         onLogout = {
                             viewModel.logout()
                         }
