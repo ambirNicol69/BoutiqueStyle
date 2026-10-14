@@ -27,6 +27,10 @@ class MainViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
     private val createSaleUseCase: CreateSaleUseCase
 ) : ViewModel() {
+    init {
+        launchAction { repository.initialize() }
+    }
+
     private val storeData = combine(
         repository.garments(),
         repository.variants(),
@@ -90,17 +94,20 @@ class MainViewModel @Inject constructor(
         _message.value = "Usuario eliminado."
     }
 
-    fun createSale(items: List<CartLine>, customer: String, customerId: String, payment: String) = launchAction {
+    fun createSale(items: List<CartLine>, customer: String, customerId: String, payment: String, onSuccess: () -> Unit = {}) = launchAction {
         createSaleUseCase(
             SaleRequest(
                 customerName = customer,
                 customerId = customerId,
                 paymentMethod = payment,
-                userId = user.value?.id ?: error("Inicia sesión nuevamente."),
+                userId = user.value?.id
+                    ?: state.value.users.firstOrNull { it.role == "ADMIN" }?.id
+                    ?: error("No se encontró una cuenta administradora para registrar la venta."),
                 items = items
             )
         )
         _message.value = "Venta registrada con ITBIS incluido."
+        onSuccess()
     }
 
     fun updateSale(sale: SaleEntity, customer: String, customerId: String, payment: String) = launchAction {

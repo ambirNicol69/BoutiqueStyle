@@ -2,7 +2,9 @@
 
 ## Acceso
 
-Abrir BoutiqueStyle e ingresar `admin` / `admin123` o `operador` / `oper123`. El primer acceso crea dos prendas, sus variantes, una venta y un apartado de ejemplo. Cambiar las contraseñas antes de utilizar datos reales.
+Abrir BoutiqueStyle e ingresar `admin` / `admin123` o `empleado` / `oper123`. El primer acceso crea dos prendas, sus variantes, una venta y un apartado de ejemplo. Cambiar las contraseñas antes de utilizar datos reales.
+
+Para explorar el catálogo como cliente, tocar **Explorar tienda como cliente** en la pantalla de acceso. Se pueden buscar prendas por nombre, marca o categoría, guardar favoritos, elegir color y talla disponibles, y agregarlas al carrito. Al confirmar la compra, indicar nombre, cédula/RNC y método de pago; la venta se registra, descuenta existencias y aparece en los reportes.
 
 ## Catálogo e inventario
 

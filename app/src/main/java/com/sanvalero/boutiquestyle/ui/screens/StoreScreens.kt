@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -38,7 +39,7 @@ import com.sanvalero.boutiquestyle.util.formatDate
 import java.time.LocalDate
 
 @Composable
-fun LoginScreen(onLogin: (String, String) -> Unit, viewModel: MainViewModel = hiltViewModel()) {
+fun LoginScreen(onLogin: (String, String) -> Unit, onBrowseStore: () -> Unit = {}, viewModel: MainViewModel = hiltViewModel()) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val message by viewModel.message.collectAsStateWithLifecycle()
@@ -52,6 +53,7 @@ fun LoginScreen(onLogin: (String, String) -> Unit, viewModel: MainViewModel = hi
                 OutlinedTextField(password, { password = it }, label = { Text("Contraseña") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
                 if (message != null) Text(message.orEmpty(), color = MaterialTheme.colorScheme.error)
                 Button(onClick = { onLogin(username, password) }, modifier = Modifier.fillMaxWidth()) { Text("Entrar") }
+                TextButton(onClick = onBrowseStore) { Text("Explorar tienda como cliente") }
                 Text("Acceso inicial: admin / admin123", style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -199,11 +201,19 @@ fun InventoryScreen(viewModel: MainViewModel = hiltViewModel()) {
 
 @Composable
 private fun GarmentDialog(initial: GarmentEntity?, onDismiss: () -> Unit, onSave: (GarmentEntity) -> Unit) {
+    val context = LocalContext.current
     var name by remember(initial) { mutableStateOf(initial?.name.orEmpty()) }
     var category by remember(initial) { mutableStateOf(initial?.category.orEmpty()) }
     var price by remember(initial) { mutableStateOf(initial?.basePrice?.toString().orEmpty()) }
     var brand by remember(initial) { mutableStateOf(initial?.brand.orEmpty()) }
     var description by remember(initial) { mutableStateOf(initial?.description.orEmpty()) }
+    var imageUri by remember(initial) { mutableStateOf(initial?.imageUri) }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            imageUri = uri.toString()
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "Nueva prenda" else "Editar prenda") },
@@ -213,12 +223,19 @@ private fun GarmentDialog(initial: GarmentEntity?, onDismiss: () -> Unit, onSave
                 InputField(category, { category = it }, "Categoría")
                 InputField(price, { price = it }, "Precio RD$", KeyboardType.Decimal)
                 InputField(brand, { brand = it }, "Marca")
+                OutlinedButton(onClick = { photoPicker.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (imageUri == null) "Añadir foto de la prenda" else "Cambiar foto de la prenda")
+                }
+                if (imageUri != null) Box(Modifier.size(88.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer)) {
+                    ProductPhoto(imageUri, category.ifBlank { "Prenda" }, Modifier.fillMaxSize())
+                }
+                if (imageUri != null) TextButton(onClick = { imageUri = null }) { Text("Quitar foto") }
                 InputField(description, { description = it }, "Descripción")
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                onSave(GarmentEntity(id = initial?.id ?: 0, name = name, category = category, basePrice = price.toDoubleOrNull() ?: 0.0, brand = brand, description = description, createdAt = initial?.createdAt ?: System.currentTimeMillis()))
+                onSave(GarmentEntity(id = initial?.id ?: 0, name = name, category = category, basePrice = price.toDoubleOrNull() ?: 0.0, brand = brand, description = description, imageUri = imageUri, createdAt = initial?.createdAt ?: System.currentTimeMillis()))
             }) { Text("Guardar") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
@@ -260,6 +277,7 @@ fun SalesScreen(viewModel: MainViewModel = hiltViewModel()) {
     var query by remember { mutableStateOf("") }
     var fromDate by remember { mutableStateOf("") }
     var throughDate by remember { mutableStateOf("") }
+    var invoice by remember { mutableStateOf<SaleInvoice?>(null) }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Ventas", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -289,7 +307,8 @@ fun SalesScreen(viewModel: MainViewModel = hiltViewModel()) {
             }
         }
     }
-    if (showSale) SaleDialog(state, viewModel, { showSale = false })
+    if (showSale) SaleDialog(state, viewModel, { showSale = false }) { invoice = it; showSale = false }
+    invoice?.let { SaleInvoiceDialog(it) { invoice = null } }
     saleToEdit?.let { sale ->
         SaleEditDialog(sale, onDismiss = { saleToEdit = null }, onSave = { customer, id, payment ->
             viewModel.updateSale(sale, customer, id, payment)
@@ -310,6 +329,44 @@ fun SalesScreen(viewModel: MainViewModel = hiltViewModel()) {
             dismissButton = { TextButton(onClick = { saleToDelete = null }) { Text("Cancelar") } }
         )
     }
+}
+
+private data class SaleInvoice(
+    val customer: String,
+    val customerId: String,
+    val payment: String,
+    val date: Long,
+    val items: List<CartLine>,
+    val garmentNames: Map<Long, String>
+) {
+    val subtotal get() = items.sumOf { it.quantity * it.unitPrice }
+    val itbis get() = kotlin.math.round(subtotal * 0.18 * 100) / 100
+    val total get() = subtotal + itbis
+}
+
+@Composable
+private fun SaleInvoiceDialog(invoice: SaleInvoice, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Factura de venta") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("BoutiqueStyle · ${formatDate(invoice.date)}")
+                Text("Cliente: ${invoice.customer}")
+                Text("Cédula / RNC: ${invoice.customerId}")
+                Text("Pago: ${invoice.payment}")
+                HorizontalDivider()
+                invoice.items.forEach { line ->
+                    Text("${invoice.garmentNames[line.variant.garmentId] ?: "Prenda"} · ${line.variant.size} · ${line.variant.color} · ${line.quantity} × ${formatCurrency(line.unitPrice)} = ${formatCurrency(line.quantity * line.unitPrice)}")
+                }
+                HorizontalDivider()
+                Text("Subtotal: ${formatCurrency(invoice.subtotal)}")
+                Text("ITBIS (18 %): ${formatCurrency(invoice.itbis)}")
+                Text("Total: ${formatCurrency(invoice.total)}", fontWeight = FontWeight.Bold)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Listo") } }
+    )
 }
 
 @Composable
@@ -337,7 +394,7 @@ private fun SaleEditDialog(
 }
 
 @Composable
-private fun SaleDialog(state: StoreUiState, viewModel: MainViewModel, dismiss: () -> Unit) {
+private fun SaleDialog(state: StoreUiState, viewModel: MainViewModel, dismiss: () -> Unit, onInvoice: (SaleInvoice) -> Unit) {
     var selected by remember { mutableStateOf<VariantEntity?>(null) }
     val cart = remember { mutableStateListOf<CartLine>() }
     var expanded by remember { mutableStateOf(false) }
@@ -404,8 +461,10 @@ private fun SaleDialog(state: StoreUiState, viewModel: MainViewModel, dismiss: (
                 if (cart.isEmpty()) {
                     formError = "Añade al menos una variante al carrito."
                 } else {
-                    viewModel.createSale(cart.toList(), customer, id, payment)
-                    dismiss()
+                    val purchasedItems = cart.toList()
+                    viewModel.createSale(purchasedItems, customer, id, payment) {
+                        onInvoice(SaleInvoice(customer.trim(), id.trim(), payment, System.currentTimeMillis(), purchasedItems, state.garments.associate { it.id to it.name }))
+                    }
                 }
             }) { Text("Confirmar") }
         },
@@ -515,7 +574,7 @@ fun MoreScreen(userName: String, isAdmin: Boolean, viewModel: MainViewModel, onL
         if (uri != null) viewModel.importBackup(uri)
     }
     LazyColumn(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 12.dp)) {
-        item { Text("Más opciones", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("$userName · ${if (isAdmin) "ADMINISTRADORA" else "OPERADORA"}") }
+        item { Text("Más opciones", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("$userName · ${if (isAdmin) "ADMINISTRADORA" else "EMPLEADO"}") }
         if (isAdmin) {
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -528,7 +587,7 @@ fun MoreScreen(userName: String, isAdmin: Boolean, viewModel: MainViewModel, onL
                     Row(Modifier.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
                             Text(managedUser.name, fontWeight = FontWeight.SemiBold)
-                            Text("${managedUser.username} · ${managedUser.role}", style = MaterialTheme.typography.bodySmall)
+                            Text("${managedUser.username} · ${if (managedUser.role == "ADMIN") "ADMINISTRADOR" else "EMPLEADO"}", style = MaterialTheme.typography.bodySmall)
                         }
                         IconButton(onClick = { userToEdit = managedUser; showUserEditor = true }) { Icon(Icons.Default.Edit, "Editar usuario") }
                         IconButton(onClick = { userToDelete = managedUser }) { Icon(Icons.Default.Delete, "Eliminar usuario") }
@@ -627,7 +686,7 @@ private fun UserEditorDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 InputField(username, { username = it }, "Usuario")
                 InputField(name, { name = it }, "Nombre")
-                TextButton(onClick = { role = if (role == "ADMIN") "OPERATOR" else "ADMIN" }) { Text("Rol: $role · cambiar") }
+                TextButton(onClick = { role = if (role == "ADMIN") "OPERATOR" else "ADMIN" }) { Text("Rol: ${if (role == "ADMIN") "ADMINISTRADOR" else "EMPLEADO"} · cambiar") }
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },

@@ -2,7 +2,7 @@
 
 ## Alcance funcional
 
-- Autenticación local con perfiles ADMIN y OPERATOR.
+- Autenticación local con perfiles ADMIN y EMPLEADO.
 - Alta, edición y eliminación de prendas; alta y eliminación de variantes de talla/color/SKU.
 - Consulta de inventario por variante, alerta cuando el stock sea menor o igual a 3.
 - Registro de ventas con cliente, método de pago, subtotal e ITBIS 18 %; búsqueda por nombre o identificación.

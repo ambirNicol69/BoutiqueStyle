@@ -14,8 +14,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -32,6 +35,7 @@ fun BoutiqueNavigation(viewModel: MainViewModel = hiltViewModel()) {
     val user by viewModel.user.collectAsState()
     val message by viewModel.message.collectAsState()
     val navController = rememberNavController()
+    var customerMode by remember { mutableStateOf(false) }
     val destinations = listOf(
         Destination("dashboard", "Inicio", Icons.Default.Home),
         Destination("inventory", "Prendas", Icons.Default.Inventory2),
@@ -49,8 +53,10 @@ fun BoutiqueNavigation(viewModel: MainViewModel = hiltViewModel()) {
         }
     }
 
-    if (user == null) {
-        LoginScreen(onLogin = viewModel::login, viewModel = viewModel)
+    if (user == null && !customerMode) {
+        LoginScreen(onLogin = viewModel::login, onBrowseStore = { customerMode = true }, viewModel = viewModel)
+    } else if (user == null) {
+        CustomerShopScreen(viewModel = viewModel, onExit = { customerMode = false })
     } else {
         val currentEntry by navController.currentBackStackEntryAsState()
         val currentRoute = currentEntry?.destination?.route

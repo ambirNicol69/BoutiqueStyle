@@ -37,15 +37,27 @@ class ReportExporter(private val context: Context) {
         val date = SimpleDateFormat("dd/MM/yyyy", Locale("es", "DO")).format(Date())
         val sales = state.sales
         val csv = buildString {
-            appendLine("Fecha,Cliente,Identificacion,Subtotal,ITBIS,Total,Metodo de pago")
+            appendLine("Fecha,Cliente,Identificacion,Articulos,Subtotal,ITBIS,Total,Metodo de pago")
             sales.forEach { sale ->
-                appendLine(listOf(dateField(sale.saleDate), csv(sale.customerName), csv(sale.customerCedulaOrRnc), sale.subtotal, sale.itbis, sale.total, csv(sale.paymentMethod)).joinToString(","))
+                val details = state.saleItems.filter { it.saleId == sale.id }.joinToString("; ") { item ->
+                    val variant = state.variants.firstOrNull { it.id == item.variantId }
+                    val garment = state.garments.firstOrNull { it.id == variant?.garmentId }
+                    "${garment?.name ?: "Prenda"} ${variant?.size.orEmpty()} ${variant?.color.orEmpty()} x${item.quantity} @ ${item.unitPrice}"
+                }
+                appendLine(listOf(dateField(sale.saleDate), csv(sale.customerName), csv(sale.customerCedulaOrRnc), csv(details), sale.subtotal, sale.itbis, sale.total, csv(sale.paymentMethod)).joinToString(","))
             }
-            appendLine(listOf("", "TOTALES", "", sales.sumOf { it.subtotal }, sales.sumOf { it.itbis }, sales.sumOf { it.total }, "").joinToString(","))
+            appendLine(listOf("", "TOTALES", "", "", sales.sumOf { it.subtotal }, sales.sumOf { it.itbis }, sales.sumOf { it.total }, "").joinToString(","))
         }
         saveBytes("ventas_${fileDate()}.csv", "text/csv", csv.toByteArray(Charsets.UTF_8))
-        val rows = sales.map {
-            "${formatDate(it.saleDate)} | ${it.customerName} | Subtotal ${formatCurrency(it.subtotal)} | ITBIS ${formatCurrency(it.itbis)} | Total ${formatCurrency(it.total)}"
+        val rows = sales.flatMap { sale ->
+            val lines = state.saleItems.filter { it.saleId == sale.id }.map { item ->
+                val variant = state.variants.firstOrNull { it.id == item.variantId }
+                val garment = state.garments.firstOrNull { it.id == variant?.garmentId }
+                "  ${garment?.name ?: "Prenda"} ${variant?.size.orEmpty()} ${variant?.color.orEmpty()} · ${item.quantity} x ${formatCurrency(item.unitPrice)} = ${formatCurrency(item.lineTotal)}"
+            }
+            listOf("${formatDate(sale.saleDate)} | ${sale.customerName} | ID ${sale.customerCedulaOrRnc} | ${sale.paymentMethod}") +
+                lines.ifEmpty { listOf("  Sin detalle de artículos") } +
+                "Subtotal ${formatCurrency(sale.subtotal)} | ITBIS ${formatCurrency(sale.itbis)} | Total ${formatCurrency(sale.total)}"
         }.toMutableList()
         rows += "Totales: subtotal ${formatCurrency(sales.sumOf { it.subtotal })} · ITBIS ${formatCurrency(sales.sumOf { it.itbis })} · total ${formatCurrency(sales.sumOf { it.total })}"
         sharePdf("Ventas por período", rows.ifEmpty { listOf("No hay ventas registradas para el período.") })

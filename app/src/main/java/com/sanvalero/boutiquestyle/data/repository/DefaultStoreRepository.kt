@@ -34,7 +34,12 @@ class DefaultStoreRepository @Inject constructor(
         database.withTransaction {
             if (dao.userCount() == 0) {
                 dao.insertUser(UserEntity(username = "admin", passwordHash = hash("admin123"), role = "ADMIN", name = "Administradora"))
-                dao.insertUser(UserEntity(username = "operador", passwordHash = hash("oper123"), role = "OPERATOR", name = "Operadora"))
+                dao.insertUser(UserEntity(username = "empleado", passwordHash = hash("oper123"), role = "OPERATOR", name = "Empleado"))
+            } else {
+                val oldEmployee = dao.findUser("operador")
+                if (oldEmployee != null && dao.findUser("empleado") == null) {
+                    dao.updateUser(oldEmployee.copy(username = "empleado", name = "Empleado"))
+                }
             }
             if (dao.observeGarmentsSnapshotIsEmpty()) {
                 val dress = dao.insertGarment(GarmentEntity(name = "Vestido Rosa Aurora", description = "Vestido de corte elegante para ocasiones especiales.", category = "Vestido", brand = "BoutiqueStyle", basePrice = 2450.0))
@@ -44,7 +49,7 @@ class DefaultStoreRepository @Inject constructor(
                 dao.insertVariant(VariantEntity(garmentId = blouse, size = "S", color = "Marfil", stock = 8, sku = "BS-BLC-S-MF"))
                 val blouseM = dao.insertVariant(VariantEntity(garmentId = blouse, size = "M", color = "Marfil", stock = 5, sku = "BS-BLC-M-MF"))
                 val adminId = dao.findUser("admin")?.id ?: error("No se encontró el usuario ADMIN de demostración.")
-                val operatorId = dao.findUser("operador")?.id ?: adminId
+                val employeeId = dao.findUser("empleado")?.id ?: adminId
                 val sampleSaleId = dao.insertSale(
                     SaleEntity(
                         customerName = "Cliente de muestra",
@@ -72,7 +77,7 @@ class DefaultStoreRepository @Inject constructor(
                         amountPaid = 500.0,
                         balance = 1950.0,
                         dueDate = System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000,
-                        userId = operatorId
+                        userId = employeeId
                     )
                 )
                 check(dao.decrementStock(dressM, 1) == 1) { "No se pudo reservar el stock del apartado de demostración." }

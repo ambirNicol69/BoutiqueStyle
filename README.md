@@ -6,7 +6,7 @@ Aplicación Android de gestión local para una boutique dominicana. Controla pre
 
 ## Funcionalidades incluidas
 
-- Login local ADMIN/OPERATOR y hash PBKDF2 con salt.
+- Login local ADMIN/EMPLEADO y hash PBKDF2 con salt.
 - ADMIN puede crear, editar y eliminar cuentas; protege la última cuenta administradora.
 - Room con seis entidades y relaciones FK.
 - CRUD de prendas, variantes (SKU único, talla, color, stock) y ventas.
@@ -61,7 +61,7 @@ No compartir `local.properties` ni el keystore. Release requiere estas propiedad
 ## Inicio de sesión demo
 
 - ADMIN: `admin` / `admin123`
-- OPERATOR: `operador` / `oper123`
+- EMPLEADO: `empleado` / `oper123`
 
 La base de datos se inicializa localmente con prendas, variantes, una venta y un apartado de ejemplo. Cambia o elimina las credenciales iniciales antes de una distribución real.
 
