@@ -28,7 +28,9 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "boutiquestyle.db").build()
+        Room.databaseBuilder(context, AppDatabase::class.java, "boutiquestyle.db")
+            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .build()
 
     @Provides
     fun provideDao(database: AppDatabase): BoutiqueDao = database.boutiqueDao()

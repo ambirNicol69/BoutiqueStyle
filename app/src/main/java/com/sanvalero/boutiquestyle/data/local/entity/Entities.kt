@@ -111,3 +111,40 @@ data class LayawayEntity(
     val dueDate: Long,
     val userId: Long
 )
+
+@Entity(
+    tableName = "stock_requests",
+    foreignKeys = [
+        ForeignKey(entity = VariantEntity::class, parentColumns = ["id"], childColumns = ["variantId"], onDelete = ForeignKey.RESTRICT),
+        ForeignKey(entity = UserEntity::class, parentColumns = ["id"], childColumns = ["employeeUserId"], onDelete = ForeignKey.RESTRICT)
+    ],
+    indices = [Index("variantId"), Index("employeeUserId"), Index("status")]
+)
+data class StockRequestEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val variantId: Long,
+    val quantity: Int,
+    val reason: String,
+    val employeeUserId: Long,
+    val status: String = "PENDING",
+    val createdAt: Long = System.currentTimeMillis(),
+    val reviewedAt: Long? = null,
+    val adminNote: String? = null
+)
+
+@Entity(
+    tableName = "stock_arrivals",
+    foreignKeys = [
+        ForeignKey(entity = VariantEntity::class, parentColumns = ["id"], childColumns = ["variantId"], onDelete = ForeignKey.RESTRICT),
+        ForeignKey(entity = UserEntity::class, parentColumns = ["id"], childColumns = ["employeeUserId"], onDelete = ForeignKey.RESTRICT)
+    ],
+    indices = [Index("variantId"), Index("employeeUserId"), Index("arrivalDate")]
+)
+data class StockArrivalEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val variantId: Long,
+    val quantity: Int,
+    val arrivalDate: Long,
+    val employeeUserId: Long,
+    val createdAt: Long = System.currentTimeMillis()
+)

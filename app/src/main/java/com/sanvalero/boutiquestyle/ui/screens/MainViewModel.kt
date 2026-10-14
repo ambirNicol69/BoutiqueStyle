@@ -44,9 +44,11 @@ class MainViewModel @Inject constructor(
     val state: StateFlow<StoreUiState> = combine(
         storeData,
         repository.saleItems(),
+        repository.stockRequests(),
+        repository.stockArrivals(),
         repository.dashboard()
-    ) { data, saleItems, dashboard ->
-        data.copy(saleItems = saleItems, dashboard = dashboard)
+    ) { data, saleItems, stockRequests, stockArrivals, dashboard ->
+        data.copy(saleItems = saleItems, stockRequests = stockRequests, stockArrivals = stockArrivals, dashboard = dashboard)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StoreUiState())
 
     private val _user = MutableStateFlow<UserEntity?>(null)
@@ -74,6 +76,32 @@ class MainViewModel @Inject constructor(
         require(variant.size.isNotBlank() && variant.color.isNotBlank() && variant.sku.isNotBlank()) { "Completa talla, color y SKU." }
         repository.saveVariant(variant)
         _message.value = "Variante guardada."
+    }
+
+    fun registerStockProduct(garment: GarmentEntity, variants: List<VariantEntity>) = launchAction {
+        require(user.value?.role == "OPERATOR") { "Esta acción está disponible para el empleado." }
+        repository.registerStockProduct(garment, variants)
+        _message.value = "Prenda y variantes registradas en el inventario."
+    }
+
+    fun createStockRequest(variant: VariantEntity, quantity: Int, reason: String) = launchAction {
+        val employee = user.value?.takeIf { it.role == "OPERATOR" } ?: error("Inicia sesión como empleado.")
+        repository.requestStock(StockRequestEntity(variantId = variant.id, quantity = quantity, reason = reason.trim(), employeeUserId = employee.id))
+        _message.value = "Solicitud enviada a administración."
+    }
+
+    fun reviewStockRequest(request: StockRequestEntity, approve: Boolean, note: String = "") = launchAction {
+        require(user.value?.role == "ADMIN") { "Solo ADMIN puede revisar solicitudes." }
+        repository.reviewStockRequest(request.copy(status = if (approve) "APPROVED" else "REJECTED", adminNote = note.trim().ifBlank { null }))
+        _message.value = "Solicitud ${if (approve) "aprobada" else "rechazada"}."
+    }
+
+    fun recordStockArrivals(variantQuantities: List<Pair<VariantEntity, Int>>, date: Long) = launchAction {
+        val employee = user.value?.takeIf { it.role == "OPERATOR" } ?: error("Inicia sesión como empleado.")
+        repository.recordStockArrivals(variantQuantities.map { (variant, quantity) ->
+            StockArrivalEntity(variantId = variant.id, quantity = quantity, arrivalDate = date, employeeUserId = employee.id)
+        })
+        _message.value = "Llegada registrada y stock actualizado."
     }
 
     fun deleteVariant(variant: VariantEntity) = launchAction { repository.removeVariant(variant) }

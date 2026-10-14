@@ -2,6 +2,10 @@
 
 | Caso | Actor | Resultado / reglas |
 |---|---|---|
+| Registrar prenda y variantes | EMPLEADO | Crear una prenda con marca, categoría, precio, tallas, colores y existencias iniciales en una transacción. |
+| Solicitar reposición | EMPLEADO | Enviar a administración una variante, cantidad y motivo; consultar el estado. |
+| Revisar reposición | ADMIN | Aprobar o rechazar solicitudes pendientes. |
+| Registrar llegada de stock | EMPLEADO | Registrar fecha/hora y cantidades recibidas; actualizar existencias en una transacción. |
 | Iniciar sesión | ADMIN / EMPLEADO | Verifica usuario y hash PBKDF2; semilla local al primer acceso. |
 | Administrar catálogo | ADMIN / EMPLEADO | Crear/editar prendas con nombre, categoría y precio. |
 | Administrar variante | ADMIN / EMPLEADO | Asignar talla, color, stock y SKU único a una prenda. |

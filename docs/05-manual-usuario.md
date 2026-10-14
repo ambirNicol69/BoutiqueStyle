@@ -10,6 +10,10 @@ Para explorar el catálogo como cliente, tocar **Explorar tienda como cliente** 
 
 En **Prendas**, crear un estilo con nombre, categoría y precio. Dentro de su tarjeta, añadir variantes individuales con talla, color, existencias y SKU. El dashboard marca las variantes con 3 unidades o menos.
 
+## Funciones de empleado
+
+Al ingresar con el perfil **EMPLEADO**, se abre una interfaz propia. En **Inicio → Registrar nuevo stock**, crear una prenda e indicar marca, categoría, precio y variantes con sus tallas, colores y existencias. **Solicitudes** permite pedir reposición para una variante e indicar cantidad y motivo; administración puede aprobar o rechazar la solicitud desde **Más → Reposiciones pendientes**. En **Inicio → Registrar llegada**, agregar las prendas recibidas y su cantidad, indicar fecha y hora, y guardar para actualizar el inventario. **Reportes** muestra el historial de llegadas.
+
 ## Venta
 
 En **Ventas → Registrar**, elegir variantes disponibles y añadir sus cantidades al carrito; luego indicar cliente, cédula/RNC y forma de pago. El sistema revisa existencias, aplica ITBIS de 18 % y descuenta inventario al guardar. El detalle fiscal y el total quedan en la venta.

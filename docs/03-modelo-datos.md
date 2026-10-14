@@ -8,6 +8,10 @@ erDiagram
     VARIANT ||--o{ SALE_ITEM : vendido_en
     SALE ||--|{ SALE_ITEM : contiene
     VARIANT ||--o{ LAYAWAY : reservado_en
+    VARIANT ||--o{ STOCK_REQUEST : requested_for
+    USER ||--o{ STOCK_REQUEST : requested_by
+    VARIANT ||--o{ STOCK_ARRIVAL : received_as
+    USER ||--o{ STOCK_ARRIVAL : recorded_by
     USER {
       long id PK
       string username UK
@@ -61,6 +65,25 @@ erDiagram
       double balance
       string status
       long dueDate
+    }
+    STOCK_REQUEST {
+      long id PK
+      long variantId FK
+      int quantity
+      string reason
+      long employeeUserId FK
+      string status
+      long createdAt
+      long reviewedAt
+      string adminNote
+    }
+    STOCK_ARRIVAL {
+      long id PK
+      long variantId FK
+      int quantity
+      long arrivalDate
+      long employeeUserId FK
+      long createdAt
     }
 ```
 

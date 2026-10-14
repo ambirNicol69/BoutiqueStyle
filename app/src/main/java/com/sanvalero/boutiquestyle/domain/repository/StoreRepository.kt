@@ -14,11 +14,17 @@ interface StoreRepository {
     fun sales(): Flow<List<SaleEntity>>
     fun layaways(): Flow<List<LayawayEntity>>
     fun saleItems(): Flow<List<SaleItemEntity>>
+    fun stockRequests(): Flow<List<StockRequestEntity>>
+    fun stockArrivals(): Flow<List<StockArrivalEntity>>
     fun users(): Flow<List<UserEntity>>
     fun dashboard(): Flow<DashboardSummary>
     suspend fun saveGarment(garment: GarmentEntity)
     suspend fun removeGarment(garment: GarmentEntity)
     suspend fun saveVariant(variant: VariantEntity)
+    suspend fun registerStockProduct(garment: GarmentEntity, variants: List<VariantEntity>)
+    suspend fun requestStock(request: StockRequestEntity)
+    suspend fun reviewStockRequest(request: StockRequestEntity)
+    suspend fun recordStockArrivals(arrivals: List<StockArrivalEntity>)
     suspend fun removeVariant(variant: VariantEntity)
     suspend fun saveUser(user: UserEntity, newPassword: String)
     suspend fun removeUser(user: UserEntity)

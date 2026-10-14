@@ -16,6 +16,8 @@ data class StoreUiState(
     val sales: List<SaleEntity> = emptyList(),
     val layaways: List<LayawayEntity> = emptyList(),
     val saleItems: List<SaleItemEntity> = emptyList(),
+    val stockRequests: List<StockRequestEntity> = emptyList(),
+    val stockArrivals: List<StockArrivalEntity> = emptyList(),
     val users: List<UserEntity> = emptyList(),
     val dashboard: DashboardSummary = DashboardSummary()
 )

@@ -92,6 +92,9 @@ interface BoutiqueDao {
     @Query("UPDATE variants SET stock = stock + :quantity WHERE id = :variantId")
     suspend fun restoreStock(variantId: Long, quantity: Int)
 
+    @Query("UPDATE variants SET stock = stock + :quantity WHERE id = :variantId")
+    suspend fun increaseStock(variantId: Long, quantity: Int): Int
+
     @Query("SELECT * FROM sales ORDER BY saleDate DESC")
     fun observeSales(): Flow<List<SaleEntity>>
 
@@ -145,6 +148,30 @@ interface BoutiqueDao {
 
     @Insert
     suspend fun insertLayaways(layaways: List<LayawayEntity>)
+
+    @Query("SELECT * FROM stock_requests ORDER BY createdAt DESC")
+    fun observeStockRequests(): Flow<List<StockRequestEntity>>
+
+    @Query("SELECT * FROM stock_requests ORDER BY createdAt DESC")
+    suspend fun allStockRequests(): List<StockRequestEntity>
+
+    @Insert
+    suspend fun insertStockRequest(request: StockRequestEntity): Long
+
+    @Insert
+    suspend fun insertStockRequests(requests: List<StockRequestEntity>)
+
+    @Update
+    suspend fun updateStockRequest(request: StockRequestEntity)
+
+    @Query("SELECT * FROM stock_arrivals ORDER BY arrivalDate DESC, id DESC")
+    fun observeStockArrivals(): Flow<List<StockArrivalEntity>>
+
+    @Query("SELECT * FROM stock_arrivals ORDER BY arrivalDate DESC, id DESC")
+    suspend fun allStockArrivals(): List<StockArrivalEntity>
+
+    @Insert
+    suspend fun insertStockArrivals(arrivals: List<StockArrivalEntity>)
 
     @Query("SELECT COUNT(*) FROM sales WHERE saleDate >= :start AND saleDate < :end")
     fun observeSalesCount(start: Long, end: Long): Flow<Int>

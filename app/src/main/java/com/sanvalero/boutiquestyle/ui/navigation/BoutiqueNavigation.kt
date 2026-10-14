@@ -57,6 +57,8 @@ fun BoutiqueNavigation(viewModel: MainViewModel = hiltViewModel()) {
         LoginScreen(onLogin = viewModel::login, onBrowseStore = { customerMode = true }, viewModel = viewModel)
     } else if (user == null) {
         CustomerShopScreen(viewModel = viewModel, onExit = { customerMode = false })
+    } else if (user?.role == "OPERATOR") {
+        EmployeeScreen(viewModel, user?.name.orEmpty(), user?.id ?: 0L, onLogout = viewModel::logout)
     } else {
         val currentEntry by navController.currentBackStackEntryAsState()
         val currentRoute = currentEntry?.destination?.route

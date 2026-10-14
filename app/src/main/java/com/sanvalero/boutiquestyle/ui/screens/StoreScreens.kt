@@ -594,6 +594,25 @@ fun MoreScreen(userName: String, isAdmin: Boolean, viewModel: MainViewModel, onL
                     }
                 }
             }
+            item { Text("Reposiciones pendientes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
+            val pendingRequests = state.stockRequests.filter { it.status == "PENDING" }
+            if (pendingRequests.isEmpty()) item { Text("No hay solicitudes por revisar.", style = MaterialTheme.typography.bodySmall) }
+            items(pendingRequests, key = { "stock-request-${it.id}" }) { request ->
+                val variant = state.variants.firstOrNull { it.id == request.variantId }
+                val garment = state.garments.firstOrNull { it.id == variant?.garmentId }
+                val employee = state.users.firstOrNull { it.id == request.employeeUserId }
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(garment?.name ?: "Prenda", fontWeight = FontWeight.SemiBold)
+                        Text("${variant?.size.orEmpty()} · ${variant?.color.orEmpty()} · Stock ${variant?.stock ?: 0} · Solicita ${request.quantity}")
+                        Text("Por ${employee?.name ?: "Empleado"} · ${request.reason}", style = MaterialTheme.typography.bodySmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { viewModel.reviewStockRequest(request, approve = true) }) { Text("Aprobar") }
+                            OutlinedButton(onClick = { viewModel.reviewStockRequest(request, approve = false) }) { Text("Rechazar") }
+                        }
+                    }
+                }
+            }
         }
         item { Text("Reportes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
         item {

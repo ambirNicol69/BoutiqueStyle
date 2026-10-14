@@ -97,6 +97,8 @@ class DefaultStoreRepository @Inject constructor(
     override fun sales() = dao.observeSales()
     override fun layaways() = dao.observeLayaways()
     override fun saleItems() = dao.observeSaleItems()
+    override fun stockRequests() = dao.observeStockRequests()
+    override fun stockArrivals() = dao.observeStockArrivals()
     override fun users() = dao.observeUsers()
 
     override fun dashboard(): Flow<DashboardSummary> {
@@ -126,6 +128,35 @@ class DefaultStoreRepository @Inject constructor(
     override suspend fun saveVariant(variant: VariantEntity) {
         require(variant.stock >= 0) { "El inventario no puede ser negativo." }
         if (variant.id == 0L) dao.insertVariant(variant) else dao.updateVariant(variant)
+    }
+
+    override suspend fun registerStockProduct(garment: GarmentEntity, variants: List<VariantEntity>) = database.withTransaction {
+        require(garment.name.isNotBlank() && garment.category.isNotBlank()) { "Completa nombre y categoría." }
+        require(garment.basePrice > 0.0) { "El precio debe ser mayor que cero." }
+        require(variants.isNotEmpty()) { "Agrega al menos una talla y color." }
+        require(variants.all { it.size.isNotBlank() && it.color.isNotBlank() && it.sku.isNotBlank() && it.stock >= 0 }) { "Revisa talla, color, SKU y cantidad de cada variante." }
+        val garmentId = dao.insertGarment(garment)
+        variants.forEach { dao.insertVariant(it.copy(id = 0, garmentId = garmentId)) }
+    }
+
+    override suspend fun requestStock(request: StockRequestEntity) {
+        require(request.quantity > 0) { "La cantidad solicitada debe ser mayor que cero." }
+        require(request.reason.isNotBlank()) { "Indica por qué se necesita la reposición." }
+        dao.insertStockRequest(request)
+    }
+
+    override suspend fun reviewStockRequest(request: StockRequestEntity) {
+        require(request.status == "APPROVED" || request.status == "REJECTED") { "El estado de la solicitud no es válido." }
+        dao.updateStockRequest(request.copy(reviewedAt = System.currentTimeMillis()))
+    }
+
+    override suspend fun recordStockArrivals(arrivals: List<StockArrivalEntity>) = database.withTransaction {
+        require(arrivals.isNotEmpty()) { "Agrega al menos una prenda recibida." }
+        require(arrivals.all { it.quantity > 0 }) { "Cada cantidad recibida debe ser mayor que cero." }
+        arrivals.groupBy { it.variantId }.forEach { (variantId, entries) ->
+            check(dao.increaseStock(variantId, entries.sumOf { it.quantity }) == 1) { "No se encontró una variante para actualizar." }
+        }
+        dao.insertStockArrivals(arrivals)
     }
 
     override suspend fun removeVariant(variant: VariantEntity) = dao.deleteVariant(variant)
@@ -212,11 +243,12 @@ class DefaultStoreRepository @Inject constructor(
 
     override suspend fun exportBackup(destination: Uri) {
         val snapshot = database.withTransaction {
-            BackupSnapshot(dao.allUsers(), dao.allGarments(), dao.allVariants(), dao.allSales(), dao.allSaleItems(), dao.allLayaways())
+            BackupSnapshot(dao.allUsers(), dao.allGarments(), dao.allVariants(), dao.allSales(), dao.allSaleItems(), dao.allLayaways(), dao.allStockRequests(), dao.allStockArrivals())
         }
         val file = File(context.cacheDir, "boutiquestyle-backup.db")
         file.delete()
-        val backupDb = Room.databaseBuilder(context, AppDatabase::class.java, file.absolutePath).build()
+        val backupDb = Room.databaseBuilder(context, AppDatabase::class.java, file.absolutePath)
+            .addMigrations(AppDatabase.MIGRATION_1_2).build()
         try {
             backupDb.withTransaction {
                 val backupDao = backupDb.boutiqueDao()
@@ -226,6 +258,8 @@ class DefaultStoreRepository @Inject constructor(
                 backupDao.insertSales(snapshot.sales)
                 backupDao.insertAllSaleItems(snapshot.saleItems)
                 backupDao.insertLayaways(snapshot.layaways)
+                backupDao.insertStockRequests(snapshot.stockRequests)
+                backupDao.insertStockArrivals(snapshot.stockArrivals)
             }
             backupDb.close()
             context.contentResolver.openOutputStream(destination, "w")?.use { output ->
@@ -244,11 +278,12 @@ class DefaultStoreRepository @Inject constructor(
         context.contentResolver.openInputStream(source)?.use { input ->
             file.outputStream().use { input.copyTo(it) }
         } ?: error("No se pudo leer el archivo de respaldo.")
-        val backupDb = Room.databaseBuilder(context, AppDatabase::class.java, file.absolutePath).build()
+        val backupDb = Room.databaseBuilder(context, AppDatabase::class.java, file.absolutePath)
+            .addMigrations(AppDatabase.MIGRATION_1_2).build()
         val snapshot = try {
             backupDb.withTransaction {
                 val backupDao = backupDb.boutiqueDao()
-                BackupSnapshot(backupDao.allUsers(), backupDao.allGarments(), backupDao.allVariants(), backupDao.allSales(), backupDao.allSaleItems(), backupDao.allLayaways())
+                BackupSnapshot(backupDao.allUsers(), backupDao.allGarments(), backupDao.allVariants(), backupDao.allSales(), backupDao.allSaleItems(), backupDao.allLayaways(), backupDao.allStockRequests(), backupDao.allStockArrivals())
             }
         } finally {
             backupDb.close()
@@ -264,6 +299,8 @@ class DefaultStoreRepository @Inject constructor(
             dao.insertSales(snapshot.sales)
             dao.insertAllSaleItems(snapshot.saleItems)
             dao.insertLayaways(snapshot.layaways)
+            dao.insertStockRequests(snapshot.stockRequests)
+            dao.insertStockArrivals(snapshot.stockArrivals)
         }
         file.delete()
     }
@@ -282,7 +319,9 @@ class DefaultStoreRepository @Inject constructor(
         val variants: List<VariantEntity>,
         val sales: List<SaleEntity>,
         val saleItems: List<SaleItemEntity>,
-        val layaways: List<LayawayEntity>
+        val layaways: List<LayawayEntity>,
+        val stockRequests: List<StockRequestEntity>,
+        val stockArrivals: List<StockArrivalEntity>
     )
 
     private fun verify(password: String, encoded: String): Boolean {
