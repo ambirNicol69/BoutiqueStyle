@@ -5,11 +5,13 @@ import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -29,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -169,7 +172,7 @@ private fun HomeCatalog(products: List<GarmentEntity>, state: StoreUiState, favo
         }
         item { Text("Categorías", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 FilterChip(selectedCategory == null, { onCategory(null) }, label = { Text("Todo") })
                 categories.take(3).forEach { value -> FilterChip(selectedCategory == value, { onCategory(if (selectedCategory == value) null else value) }, label = { Text(value) }) }
             }
@@ -229,9 +232,9 @@ fun ProductPhoto(imageUri: String?, category: String, modifier: Modifier) {
         value = imageUri?.let { uri -> withContext(Dispatchers.IO) { runCatching { context.contentResolver.openInputStream(Uri.parse(uri))?.use(BitmapFactory::decodeStream) }.getOrNull() } }
     }
     Box(modifier, contentAlignment = Alignment.Center) {
-        if (bitmap != null) Image(bitmap!!.asImageBitmap(), "Prenda de $category", Modifier.fillMaxSize())
+        if (bitmap != null) Image(bitmap!!.asImageBitmap(), "Prenda de $category", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(categoryGlyph(category), style = MaterialTheme.typography.displayMedium)
+            Icon(Icons.Default.ShoppingBag, contentDescription = null, modifier = Modifier.size(44.dp), tint = Color(0xFF9D3F5B))
             Text(category, color = Color(0xFF3E2723))
         }
     }
@@ -243,9 +246,12 @@ private fun CategoryScreen(categories: List<String>, state: StoreUiState, onSele
         item { Text("Categorías", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
         items(categories) { category ->
             Card(Modifier.fillMaxWidth().clickable { onSelect(category) }, colors = CardDefaults.cardColors(containerColor = Color(0xFFF9E5EA)), shape = RoundedCornerShape(20.dp)) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(54.dp).background(Color(0xFFF4C9D6), CircleShape), contentAlignment = Alignment.Center) { Text(category.take(1).uppercase(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
-                    Column(Modifier.weight(1f).padding(start = 12.dp)) { Text(category, fontWeight = FontWeight.Bold); Text("${state.garments.count { it.category == category }} estilos") }
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(56.dp).background(Color(0xFFF4C9D6), CircleShape), contentAlignment = Alignment.Center) { Text(category.take(1).uppercase(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color(0xFF3E2723)) }
+                    Column(Modifier.weight(1f).padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(category, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF3E2723), maxLines = 2, softWrap = true)
+                        Text("${state.garments.count { it.category == category }} estilos", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF6D5550))
+                    }
                     Text("›", style = MaterialTheme.typography.headlineMedium)
                 }
             }
@@ -318,7 +324,9 @@ private fun CartScreen(cart: List<CartLine>, state: StoreUiState, onQuantity: (C
             val garment = state.garments.firstOrNull { it.id == line.variant.garmentId }
             Card {
                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Box(Modifier.size(70.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFF9E5EA)), contentAlignment = Alignment.Center) { Text(garment?.category?.take(1)?.uppercase().orEmpty(), style = MaterialTheme.typography.headlineMedium, color = Color(0xFF9D3F5B)) }
+                    Box(Modifier.size(70.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFF9E5EA))) {
+                        ProductPhoto(garment?.imageUri, garment?.category ?: "Prenda", Modifier.fillMaxSize())
+                    }
                     Column(Modifier.weight(1f)) {
                         Text(garment?.brand.orEmpty(), style = MaterialTheme.typography.labelMedium)
                         Text(garment?.name ?: "Prenda", fontWeight = FontWeight.SemiBold)
@@ -435,14 +443,4 @@ private fun swatchColor(name: String): Color = when {
     "gris" in name.lowercase() -> Color(0xFF9B9B9B)
     "lila" in name.lowercase() || "morado" in name.lowercase() -> Color(0xFFC09BC9)
     else -> Color(0xFFD9B7C2)
-}
-
-private fun categoryGlyph(category: String): String = when {
-    "vestido" in category.lowercase() -> "👗"
-    "blusa" in category.lowercase() || "camiseta" in category.lowercase() -> "👚"
-    "pantalón" in category.lowercase() || "pantalon" in category.lowercase() -> "👖"
-    "falda" in category.lowercase() -> "👗"
-    "chaqueta" in category.lowercase() || "abrigo" in category.lowercase() || "sudadera" in category.lowercase() -> "🧥"
-    "zapato" in category.lowercase() -> "👠"
-    else -> "👚"
 }

@@ -239,6 +239,7 @@ private fun GarmentDialog(initial: GarmentEntity?, onDismiss: () -> Unit, onSave
     var brand by remember(initial) { mutableStateOf(initial?.brand.orEmpty()) }
     var description by remember(initial) { mutableStateOf(initial?.description.orEmpty()) }
     var imageUri by remember(initial) { mutableStateOf(initial?.imageUri) }
+    var photoError by remember(initial) { mutableStateOf<String?>(null) }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
@@ -260,13 +261,19 @@ private fun GarmentDialog(initial: GarmentEntity?, onDismiss: () -> Unit, onSave
                 if (imageUri != null) Box(Modifier.size(88.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer)) {
                     ProductPhoto(imageUri, category.ifBlank { "Prenda" }, Modifier.fillMaxSize())
                 }
+                if (initial == null) Text("La foto es necesaria para mostrar esta prenda en la tienda.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                photoError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 if (imageUri != null) TextButton(onClick = { imageUri = null }) { Text("Quitar foto") }
                 InputField(description, { description = it }, "Descripción")
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                onSave(GarmentEntity(id = initial?.id ?: 0, name = name, category = category, basePrice = price.toDoubleOrNull() ?: 0.0, brand = brand, description = description, imageUri = imageUri, createdAt = initial?.createdAt ?: System.currentTimeMillis()))
+                if (initial == null && imageUri == null) photoError = "Agrega una foto antes de registrar la prenda."
+                else {
+                    photoError = null
+                    onSave(GarmentEntity(id = initial?.id ?: 0, name = name, category = category, basePrice = price.toDoubleOrNull() ?: 0.0, brand = brand, description = description, imageUri = imageUri, createdAt = initial?.createdAt ?: System.currentTimeMillis()))
+                }
             }) { Text("Guardar") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }

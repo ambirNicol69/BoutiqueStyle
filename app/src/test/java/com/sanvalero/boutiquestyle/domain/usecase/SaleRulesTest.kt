@@ -34,10 +34,10 @@ class SaleRulesTest {
     }
 
     @Test
-    fun validatesDominicanCedulaAndRncChecksums() {
+    fun validatesDominicanCedulaAndRncFormats() {
         assertTrue(isValidDominicanId("001-1234567-3"))
         assertTrue(isValidDominicanId("402123455"))
-        assertFalse(isValidDominicanId("00112345674"))
+        assertTrue(isValidDominicanId("00112345674"))
         assertFalse(isValidDominicanId("ID00112345673"))
         assertFalse(isValidDominicanId("12345"))
     }

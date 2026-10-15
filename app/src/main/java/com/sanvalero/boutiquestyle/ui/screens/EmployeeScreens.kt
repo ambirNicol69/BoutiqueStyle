@@ -1,5 +1,7 @@
 package com.sanvalero.boutiquestyle.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,7 +25,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -268,12 +272,20 @@ private fun StatusPill(status: String) {
 
 @Composable
 private fun NewProductDialog(onDismiss: () -> Unit, onSave: (GarmentEntity, List<VariantEntity>) -> Unit) {
+    val context = LocalContext.current
     var name by remember { mutableStateOf("") }
     var brand by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
+    var imageUri by remember { mutableStateOf<String?>(null) }
     var variants by remember { mutableStateOf(listOf(VariantDraft(size = "M", color = "", quantity = "1"))) }
     var error by remember { mutableStateOf<String?>(null) }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            imageUri = uri.toString()
+        }
+    }
     AlertDialog(onDismissRequest = onDismiss, title = { Text("Registrar nuevo stock") },
         text = {
             Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -282,6 +294,12 @@ private fun NewProductDialog(onDismiss: () -> Unit, onSave: (GarmentEntity, List
                 OutlinedTextField(brand, { brand = it }, label = { Text("Marca") }, singleLine = true)
                 OutlinedTextField(category, { category = it }, label = { Text("Categoría") }, singleLine = true)
                 OutlinedTextField(price, { price = it }, label = { Text("Precio RD$") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                OutlinedButton(onClick = { photoPicker.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (imageUri == null) "Agregar foto de la prenda" else "Cambiar foto de la prenda")
+                }
+                imageUri?.let { selectedImage ->
+                    ProductPhoto(selectedImage, category.ifBlank { "Prenda" }, Modifier.fillMaxWidth().height(112.dp).clip(RoundedCornerShape(12.dp)))
+                }
                 Text("Variantes", fontWeight = FontWeight.Bold)
                 variants.forEachIndexed { index, row ->
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8F8))) {
@@ -305,9 +323,9 @@ private fun NewProductDialog(onDismiss: () -> Unit, onSave: (GarmentEntity, List
         confirmButton = { TextButton(onClick = {
             val parsedPrice = price.toDoubleOrNull()
             val validVariants = variants.all { it.size.isNotBlank() && it.color.isNotBlank() && (it.quantity.toIntOrNull() ?: 0) >= 0 }
-            if (name.isBlank() || category.isBlank() || parsedPrice == null || parsedPrice <= 0 || !validVariants) error = "Completa los datos y revisa cada talla, color y cantidad."
+            if (name.isBlank() || category.isBlank() || parsedPrice == null || parsedPrice <= 0 || !validVariants || imageUri == null) error = "Completa los datos, agrega una foto y revisa cada talla, color y cantidad."
             else {
-                val garment = GarmentEntity(name = name.trim(), brand = brand.trim(), category = category.trim(), basePrice = parsedPrice)
+                val garment = GarmentEntity(name = name.trim(), brand = brand.trim(), category = category.trim(), basePrice = parsedPrice, imageUri = imageUri)
                 val stockVariants = variants.mapIndexed { index, row ->
                     VariantEntity(garmentId = 0, size = row.size.trim(), color = row.color.trim(), stock = row.quantity.toInt(), sku = "BS-${System.currentTimeMillis()}-${index + 1}")
                 }
