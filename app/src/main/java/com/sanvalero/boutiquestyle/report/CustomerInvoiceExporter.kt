@@ -3,7 +3,7 @@ package com.sanvalero.boutiquestyle.report
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.PdfDocument
+import android.graphics.pdf.PdfDocument
 import android.graphics.RectF
 import android.graphics.Typeface
 import com.sanvalero.boutiquestyle.util.formatCurrency
