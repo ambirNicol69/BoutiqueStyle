@@ -54,7 +54,12 @@ fun BoutiqueNavigation(viewModel: MainViewModel = hiltViewModel()) {
     }
 
     if (user == null && !customerMode) {
-        LoginScreen(onLogin = viewModel::login, onBrowseStore = { customerMode = true }, viewModel = viewModel)
+        LoginScreen(
+            onLogin = viewModel::login,
+            onCustomerLogin = viewModel::loginCustomer,
+            onBrowseStore = { customerMode = true },
+            viewModel = viewModel
+        )
     } else if (user?.role == "CUSTOMER" || (user == null && customerMode)) {
         CustomerShopScreen(
             viewModel = viewModel,
@@ -113,7 +118,7 @@ fun BoutiqueNavigation(viewModel: MainViewModel = hiltViewModel()) {
                         }
                     )
                 }
-                composable("login") { LoginScreen(onLogin = viewModel::login, viewModel = viewModel) }
+                composable("login") { LoginScreen(onLogin = viewModel::login, onCustomerLogin = viewModel::loginCustomer, viewModel = viewModel) }
             }
         }
     }

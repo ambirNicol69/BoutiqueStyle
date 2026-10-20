@@ -39,7 +39,12 @@ import com.sanvalero.boutiquestyle.util.formatDate
 import java.time.LocalDate
 
 @Composable
-fun LoginScreen(onLogin: (String, String) -> Unit, onBrowseStore: () -> Unit = {}, viewModel: MainViewModel = hiltViewModel()) {
+fun LoginScreen(
+    onLogin: (String, String) -> Unit,
+    onCustomerLogin: (String, String) -> Unit = onLogin,
+    onBrowseStore: () -> Unit = {},
+    viewModel: MainViewModel = hiltViewModel()
+) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val message by viewModel.message.collectAsStateWithLifecycle()
@@ -48,11 +53,12 @@ fun LoginScreen(onLogin: (String, String) -> Unit, onBrowseStore: () -> Unit = {
             Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Image(painterResource(R.drawable.logo_boutiquestyle), "Logo de BoutiqueStyle", Modifier.size(150.dp))
                 Text("Bienvenida", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text("Inicia sesión para administrar tu boutique", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Entra a tu cuenta o explora la tienda", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(username, { username = it }, label = { Text("Usuario") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(password, { password = it }, label = { Text("Contraseña") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
                 if (message != null) Text(message.orEmpty(), color = MaterialTheme.colorScheme.error)
-                Button(onClick = { onLogin(username, password) }, modifier = Modifier.fillMaxWidth()) { Text("Entrar") }
+                Button(onClick = { onLogin(username, password) }, modifier = Modifier.fillMaxWidth()) { Text("Entrar como administradora / empleado") }
+                OutlinedButton(onClick = { onCustomerLogin(username, password) }, modifier = Modifier.fillMaxWidth()) { Text("Entrar como cliente") }
                 TextButton(onClick = onBrowseStore) { Text("Explorar tienda como cliente") }
                 Text("Acceso inicial: admin / admin123", style = MaterialTheme.typography.bodySmall)
             }

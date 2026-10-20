@@ -82,10 +82,7 @@ fun CustomerShopScreen(
     var orderDate by remember { mutableStateOf(0L) }
     var showCustomerAccess by remember { mutableStateOf(false) }
     LaunchedEffect(customer) {
-        if (customer != null && showCustomerAccess) {
-            showCustomerAccess = false
-            checkout = true
-        }
+        if (customer != null) showCustomerAccess = false
     }
     if (completed) {
         OrderComplete(cart, state, orderCustomer, orderId, orderPayment, orderDate) { completed = false; checkout = false; cart = emptyList(); tab = ShopTab.HOME }
