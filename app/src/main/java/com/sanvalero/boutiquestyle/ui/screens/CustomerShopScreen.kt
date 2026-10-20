@@ -2,6 +2,8 @@ package com.sanvalero.boutiquestyle.ui.screens
 
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -40,18 +43,29 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sanvalero.boutiquestyle.R
 import com.sanvalero.boutiquestyle.data.local.entity.GarmentEntity
+import com.sanvalero.boutiquestyle.data.local.entity.UserEntity
 import com.sanvalero.boutiquestyle.data.local.entity.VariantEntity
 import com.sanvalero.boutiquestyle.domain.model.CartLine
 import com.sanvalero.boutiquestyle.domain.model.StoreUiState
+import com.sanvalero.boutiquestyle.report.CustomerInvoice
+import com.sanvalero.boutiquestyle.report.CustomerInvoiceExporter
+import com.sanvalero.boutiquestyle.report.CustomerInvoiceItem
 import com.sanvalero.boutiquestyle.util.formatCurrency
 import com.sanvalero.boutiquestyle.util.formatDate
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private enum class ShopTab(val title: String) { HOME("Inicio"), CATEGORIES("Categorías"), FAVORITES("Favoritos"), CART("Carrito"), PROFILE("Perfil") }
 
 @Composable
-fun CustomerShopScreen(viewModel: MainViewModel, onExit: () -> Unit) {
+fun CustomerShopScreen(
+    viewModel: MainViewModel,
+    customer: UserEntity?,
+    onExit: () -> Unit,
+    onLogin: (String, String) -> Unit,
+    onRegister: (String, String, String) -> Unit
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     var tab by remember { mutableStateOf(ShopTab.HOME) }
@@ -65,16 +79,27 @@ fun CustomerShopScreen(viewModel: MainViewModel, onExit: () -> Unit) {
     var orderCustomer by remember { mutableStateOf("") }
     var orderId by remember { mutableStateOf("") }
     var orderPayment by remember { mutableStateOf("") }
+    var orderDate by remember { mutableStateOf(0L) }
+    var showCustomerAccess by remember { mutableStateOf(false) }
+    LaunchedEffect(customer) {
+        if (customer != null && showCustomerAccess) {
+            showCustomerAccess = false
+            checkout = true
+        }
+    }
     if (completed) {
-        OrderComplete(cart, state, orderCustomer, orderId, orderPayment) { completed = false; checkout = false; cart = emptyList(); tab = ShopTab.HOME }
+        OrderComplete(cart, state, orderCustomer, orderId, orderPayment, orderDate) { completed = false; checkout = false; cart = emptyList(); tab = ShopTab.HOME }
         return
     }
     if (checkout) {
-        CheckoutScreen(cart, state, message, onBack = { checkout = false }) { name, id, payment ->
+        CheckoutScreen(cart, state, message, initialName = customer?.name.orEmpty(), onBack = { checkout = false }) { name, id, payment ->
             orderCustomer = name
             orderId = id
             orderPayment = payment
-            viewModel.createSale(cart, name, id, payment) { completed = true }
+            viewModel.createSale(cart, name, id, payment) {
+                orderDate = System.currentTimeMillis()
+                completed = true
+            }
         }
         return
     }
@@ -106,7 +131,12 @@ fun CustomerShopScreen(viewModel: MainViewModel, onExit: () -> Unit) {
             tab == ShopTab.CART -> CartScreen(cart, state,
                 onQuantity = { line, amount -> cart = cart.map { if (it.variant.id == line.variant.id) it.copy(quantity = amount) else it }.filter { it.quantity > 0 } },
                 onRemove = { line -> cart = cart.filterNot { it.variant.id == line.variant.id } },
-                onBrowse = { tab = ShopTab.HOME }, onCheckout = { checkout = true }, modifier = Modifier.padding(padding))
+                onBrowse = { tab = ShopTab.HOME },
+                onCheckout = {
+                    viewModel.clearMessage()
+                    if (customer == null) showCustomerAccess = true else checkout = true
+                },
+                modifier = Modifier.padding(padding))
             tab == ShopTab.CATEGORIES -> CategoryScreen(state.garments.map { it.category }.distinct().sorted(), state,
                 onSelect = { category = it; tab = ShopTab.HOME }, modifier = Modifier.padding(padding))
             tab == ShopTab.FAVORITES -> ProductList("Tus favoritos", state.garments.filter { it.id in favorites }, state, favorites,
@@ -114,14 +144,61 @@ fun CustomerShopScreen(viewModel: MainViewModel, onExit: () -> Unit) {
             tab == ShopTab.PROFILE -> Column(Modifier.fillMaxSize().padding(padding).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Image(painterResource(R.drawable.logo_boutiquestyle), "Logo BoutiqueStyle", Modifier.size(110.dp))
                 Text("Tu perfil", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Explora el catálogo y arma tu próximo look.")
-                OutlinedButton(onClick = onExit, modifier = Modifier.padding(top = 16.dp)) { Text("Volver al acceso") }
+                Text(if (customer == null) "Explora la tienda sin iniciar sesión; entra para comprar." else "Gestiona tu sesión de cliente.")
+                if (customer == null) {
+                    OutlinedButton(onClick = { showCustomerAccess = true }, modifier = Modifier.padding(top = 16.dp)) { Text("Iniciar sesión como cliente") }
+                    TextButton(onClick = onExit) { Text("Volver al acceso de la boutique") }
+                } else {
+                    Text("Sesión iniciada como ${customer.name} (@${customer.username}).")
+                    OutlinedButton(onClick = onExit, modifier = Modifier.padding(top = 16.dp)) { Text("Cerrar sesión") }
+                }
             }
             else -> HomeCatalog(filtered, state, favorites, category,
                 state.garments.map { it.category }.distinct().sorted(), onCategory = { category = it },
                 onProduct = { product = it }, onFavorite = { favorites = favorites.toggle(it) }, modifier = Modifier.padding(padding))
         }
     }
+    if (showCustomerAccess) CustomerAccessDialog(
+        message = message,
+        onDismiss = { showCustomerAccess = false },
+        onLogin = onLogin,
+        onRegister = onRegister
+    )
+}
+
+@Composable
+private fun CustomerAccessDialog(
+    message: String?,
+    onDismiss: () -> Unit,
+    onLogin: (String, String) -> Unit,
+    onRegister: (String, String, String) -> Unit
+) {
+    var registering by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (registering) "Crear cuenta de cliente" else "Iniciar sesión para comprar") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (registering) OutlinedTextField(name, { name = it }, label = { Text("Nombre completo") }, singleLine = true)
+                OutlinedTextField(username, { username = it }, label = { Text("Usuario") }, singleLine = true)
+                OutlinedTextField(password, { password = it }, label = { Text("Contraseña (mínimo 6 caracteres)") }, singleLine = true,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = { registering = !registering }) {
+                    Text(if (registering) "Ya tengo una cuenta" else "Crear una cuenta nueva")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (registering) onRegister(username, password, name) else onLogin(username, password)
+            }) { Text(if (registering) "Crear cuenta" else "Entrar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Ahora no") } }
+    )
 }
 
 private fun Set<Long>.toggle(id: Long) = if (id in this) this - id else this + id
@@ -356,8 +433,8 @@ private fun CartScreen(cart: List<CartLine>, state: StoreUiState, onQuantity: (C
 }
 
 @Composable
-private fun CheckoutScreen(cart: List<CartLine>, state: StoreUiState, message: String?, onBack: () -> Unit, onConfirm: (String, String, String) -> Unit) {
-    var name by remember { mutableStateOf("") }
+private fun CheckoutScreen(cart: List<CartLine>, state: StoreUiState, message: String?, initialName: String, onBack: () -> Unit, onConfirm: (String, String, String) -> Unit) {
+    var name by remember(initialName) { mutableStateOf(initialName) }
     var identification by remember { mutableStateOf("") }
     var payment by remember { mutableStateOf("Efectivo") }
     val subtotal = cart.sumOf { it.quantity * it.unitPrice }
@@ -370,7 +447,7 @@ private fun CheckoutScreen(cart: List<CartLine>, state: StoreUiState, message: S
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item { Text("Datos del cliente", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
             item { OutlinedTextField(name, { name = it }, label = { Text("Nombre completo") }, modifier = Modifier.fillMaxWidth(), singleLine = true) }
-            item { OutlinedTextField(identification, { identification = it }, label = { Text("Cédula / RNC") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)) }
+            item { IdentificationField(identification, { identification = it }) }
             item { Text("Método de pago", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
             items(listOf("Efectivo", "Tarjeta", "Transferencia")) { option ->
                 Row(Modifier.fillMaxWidth().clickable { payment = option }, verticalAlignment = Alignment.CenterVertically) {
@@ -396,30 +473,97 @@ private fun CheckoutScreen(cart: List<CartLine>, state: StoreUiState, message: S
 }
 
 @Composable
-private fun OrderComplete(cart: List<CartLine>, state: StoreUiState, customer: String, identification: String, payment: String, onContinue: () -> Unit) {
-    val subtotal = cart.sumOf { it.quantity * it.unitPrice }
-    Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+private fun OrderComplete(
+    cart: List<CartLine>,
+    state: StoreUiState,
+    customer: String,
+    identification: String,
+    payment: String,
+    date: Long,
+    onContinue: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var exportMessage by remember { mutableStateOf<String?>(null) }
+    val invoice = remember(cart, state.garments, customer, identification, payment, date) {
+        CustomerInvoice(
+            date = date,
+            customer = customer,
+            identification = identification,
+            payment = payment,
+            items = cart.map { line ->
+                val garment = state.garments.firstOrNull { it.id == line.variant.garmentId }
+                CustomerInvoiceItem(
+                    name = garment?.name ?: "Prenda",
+                    variant = "${line.variant.color} · Talla ${line.variant.size}",
+                    quantity = line.quantity,
+                    unitPrice = line.unitPrice
+                )
+            }
+        )
+    }
+    fun saveInvoice(uri: Uri?, asPdf: Boolean) {
+        if (uri == null) return
+        exportMessage = null
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val output = context.contentResolver.openOutputStream(uri)
+                        ?: error("No se pudo abrir el archivo seleccionado.")
+                    output.use {
+                        if (asPdf) CustomerInvoiceExporter.writePdf(invoice, it)
+                        else CustomerInvoiceExporter.writeImage(invoice, it)
+                    }
+                }
+            }.onSuccess {
+                exportMessage = "Factura guardada correctamente."
+            }.onFailure { error ->
+                exportMessage = error.message ?: "No se pudo guardar la factura."
+            }
+        }
+    }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
+        saveInvoice(uri, asPdf = false)
+    }
+    val pdfPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        saveInvoice(uri, asPdf = true)
+    }
+    val subtotal = invoice.subtotal
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
         Icon(Icons.Default.CheckCircle, null, Modifier.size(78.dp), tint = Color(0xFFBC4E72))
         Text("¡Compra realizada!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("Tu pedido quedó registrado en BoutiqueStyle.")
         Card(Modifier.padding(top = 16.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF4C9D6))) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Factura de compra", fontWeight = FontWeight.Bold)
-                Text("${formatDate(System.currentTimeMillis())} · $payment", style = MaterialTheme.typography.bodySmall)
+                Text("${formatDate(date)} · $payment", style = MaterialTheme.typography.bodySmall)
                 Text("Cliente: $customer", style = MaterialTheme.typography.bodySmall)
                 Text("Cédula / RNC: $identification", style = MaterialTheme.typography.bodySmall)
-                cart.forEach { line ->
-                    val garment = state.garments.firstOrNull { it.id == line.variant.garmentId }
-                    Text("${garment?.name ?: "Prenda"} · ${line.variant.color} · ${line.variant.size} × ${line.quantity} = ${formatCurrency(line.quantity * line.unitPrice)}", style = MaterialTheme.typography.bodySmall)
+                invoice.items.forEach { item ->
+                    Text("${item.name} · ${item.variant} × ${item.quantity} = ${formatCurrency(item.quantity * item.unitPrice)}", style = MaterialTheme.typography.bodySmall)
                 }
                 HorizontalDivider()
-                PriceLine("Subtotal", subtotal); PriceLine("ITBIS", moneyTax(subtotal)); PriceLine("Total", subtotal + moneyTax(subtotal), true)
+                PriceLine("Subtotal", subtotal)
+                PriceLine("ITBIS (18 %)", invoice.tax)
+                PriceLine("Total", subtotal + invoice.tax, true)
             }
         }
-        Button(onContinue, Modifier.fillMaxWidth().padding(top = 18.dp)) { Text("Seguir comprando") }
+        Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = { imagePicker.launch("factura_boutiquestyle_${date}.png") }, modifier = Modifier.weight(1f)) {
+                Text("Guardar imagen")
+            }
+            Button(onClick = { pdfPicker.launch("factura_boutiquestyle_${date}.pdf") }, modifier = Modifier.weight(1f)) {
+                Text("Guardar PDF")
+            }
+        }
+        exportMessage?.let { Text(it, Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.primary) }
+        Button(onContinue, Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Seguir comprando") }
     }
 }
-
 @Composable
 private fun PriceLine(label: String, value: Double, bold: Boolean = false) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

@@ -45,7 +45,7 @@ fun BoutiqueNavigation(viewModel: MainViewModel = hiltViewModel()) {
     )
 
     LaunchedEffect(user) {
-        if (user != null) {
+        if (user?.role == "ADMIN") {
             navController.navigate("dashboard") {
                 popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                 launchSingleTop = true
@@ -55,8 +55,19 @@ fun BoutiqueNavigation(viewModel: MainViewModel = hiltViewModel()) {
 
     if (user == null && !customerMode) {
         LoginScreen(onLogin = viewModel::login, onBrowseStore = { customerMode = true }, viewModel = viewModel)
-    } else if (user == null) {
-        CustomerShopScreen(viewModel = viewModel, onExit = { customerMode = false })
+    } else if (user?.role == "CUSTOMER" || (user == null && customerMode)) {
+        CustomerShopScreen(
+            viewModel = viewModel,
+            customer = user?.takeIf { it.role == "CUSTOMER" },
+            onExit = {
+                if (user?.role == "CUSTOMER") {
+                    viewModel.logout()
+                    customerMode = true
+                } else customerMode = false
+            },
+            onLogin = viewModel::loginCustomer,
+            onRegister = viewModel::registerCustomer
+        )
     } else if (user?.role == "OPERATOR") {
         EmployeeScreen(viewModel, user?.name.orEmpty(), user?.id ?: 0L, onLogout = viewModel::logout)
     } else {

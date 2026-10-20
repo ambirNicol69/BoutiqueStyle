@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 interface StoreRepository {
     suspend fun initialize()
     suspend fun login(username: String, password: String): UserEntity?
+    suspend fun registerCustomer(username: String, password: String, name: String): UserEntity
     fun garments(): Flow<List<GarmentEntity>>
     fun variants(): Flow<List<VariantEntity>>
     fun variants(garmentId: Long): Flow<List<VariantEntity>>

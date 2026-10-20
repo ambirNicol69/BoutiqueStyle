@@ -16,7 +16,7 @@ class CreateSaleUseCase @Inject constructor(private val repository: StoreReposit
         require(request.items.isNotEmpty()) { "Agrega al menos una variante a la venta." }
         require(request.items.all { it.quantity > 0 }) { "La cantidad debe ser mayor que cero." }
         require(request.customerName.isNotBlank()) { "El nombre del cliente es obligatorio." }
-        require(isValidDominicanId(request.customerId)) { "La cédula debe tener 11 dígitos o el RNC 9 dígitos. Puedes escribirlos con guiones." }
+        require(isValidDominicanId(request.customerId)) { "La cédula debe tener 11 dígitos o el RNC 9, con su dígito verificador correcto." }
         return repository.createSale(request)
     }
 }
@@ -42,6 +42,28 @@ class ValidateSaleUseCase @Inject constructor() {
 }
 
 fun isValidDominicanId(value: String): Boolean {
-    val digits = value.filterNot { it == '-' || it.isWhitespace() }
-    return digits.all { it in '0'..'9' } && (digits.length == 11 || digits.length == 9)
+    if (value.any { it !in '0'..'9' && it != '-' && !it.isWhitespace() }) return false
+    val digits = value.filter { it in '0'..'9' }
+    if ((digits.length != 9 && digits.length != 11) || digits.all { it == digits.first() }) return false
+
+    return when (digits.length) {
+        11 -> {
+            val sum = digits.take(10).mapIndexed { index, digit ->
+                val product = digit.digitToInt() * if (index % 2 == 0) 1 else 2
+                if (product > 9) product - 9 else product
+            }.sum()
+            (10 - sum % 10) % 10 == digits.last().digitToInt()
+        }
+        9 -> {
+            val weights = intArrayOf(7, 9, 8, 6, 5, 4, 3, 2)
+            val remainder = digits.take(8).mapIndexed { index, digit -> digit.digitToInt() * weights[index] }.sum() % 11
+            val expectedCheckDigit = when (val checkDigit = 11 - remainder) {
+                10 -> 1
+                11 -> 0
+                else -> checkDigit
+            }
+            expectedCheckDigit == digits.last().digitToInt()
+        }
+        else -> false
+    }
 }

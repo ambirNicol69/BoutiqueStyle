@@ -422,7 +422,7 @@ private fun SaleEditDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 InputField(customer, { customer = it }, "Nombre del cliente")
-                InputField(customerId, { customerId = it }, "Cédula / RNC")
+                IdentificationField(customerId, { customerId = it })
                 InputField(payment, { payment = it }, "Método de pago")
             }
         },
@@ -487,7 +487,7 @@ private fun SaleDialog(state: StoreUiState, viewModel: MainViewModel, dismiss: (
                         }
                     }
                     InputField(customer, { customer = it }, "Nombre del cliente")
-                    InputField(id, { id = it }, "Cédula / RNC")
+                    IdentificationField(id, { id = it })
                     InputField(payment, { payment = it }, "Método de pago")
                     val subtotal = cart.sumOf { it.quantity * it.unitPrice }
                     Text("Subtotal ${formatCurrency(subtotal)} · ITBIS ${formatCurrency(kotlin.math.round(subtotal * 0.18 * 100) / 100)}", style = MaterialTheme.typography.bodySmall)
@@ -518,7 +518,7 @@ fun LayawaysScreen(viewModel: MainViewModel = hiltViewModel()) {
     var fromDate by remember { mutableStateOf("") }
     var throughDate by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Apartados", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             FilledTonalButton(onClick = { showNew = true }) { Icon(Icons.Default.Add, null); Text("Nuevo") }
         }
@@ -574,7 +574,7 @@ private fun LayawayDialog(state: StoreUiState, viewModel: MainViewModel, dismiss
                 InputField(quantity, { quantity = it }, "Cantidad", KeyboardType.Number)
                 InputField(customer, { customer = it }, "Nombre")
                 InputField(phone, { phone = it }, "Teléfono", KeyboardType.Phone)
-                InputField(cedula, { cedula = it }, "Cédula / RNC", KeyboardType.Number)
+                IdentificationField(cedula, { cedula = it })
                 InputField(paid, { paid = it }, "Abono inicial RD$", KeyboardType.Decimal)
                 formError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
@@ -654,7 +654,7 @@ fun MoreScreen(userName: String, isAdmin: Boolean, viewModel: MainViewModel, onO
                     FilledTonalButton(onClick = { userToEdit = null; showUserEditor = true }) { Icon(Icons.Default.Add, null); Text("Añadir") }
                 }
             }
-            items(state.users, key = { "user-${it.id}" }) { managedUser ->
+            items(state.users.filter { it.role != "CUSTOMER" }, key = { "user-${it.id}" }) { managedUser ->
                 Card(Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f).padding(vertical = 12.dp)) {

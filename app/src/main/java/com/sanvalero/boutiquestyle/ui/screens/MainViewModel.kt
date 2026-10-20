@@ -58,9 +58,20 @@ class MainViewModel @Inject constructor(
     val message: StateFlow<String?> = _message.asStateFlow()
 
     fun login(username: String, password: String) = launchAction {
-        _user.value = loginUseCase(username, password) ?: error("Usuario o contraseña incorrectos.")
+        val authenticated = loginUseCase(username, password) ?: error("Usuario o contraseña incorrectos.")
+        require(authenticated.role == "ADMIN" || authenticated.role == "OPERATOR") { "Esta cuenta es de cliente; entra desde la tienda." }
+        _user.value = authenticated
     }
 
+    fun loginCustomer(username: String, password: String) = launchAction {
+        val authenticated = loginUseCase(username, password) ?: error("Usuario o contraseña incorrectos.")
+        require(authenticated.role == "CUSTOMER") { "Usa las credenciales de una cuenta de cliente." }
+        _user.value = authenticated
+    }
+
+    fun registerCustomer(username: String, password: String, name: String) = launchAction {
+        _user.value = repository.registerCustomer(username, password, name)
+    }
     fun logout() { _user.value = null }
 
     fun saveGarment(garment: GarmentEntity) = launchAction {
@@ -139,7 +150,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun updateSale(sale: SaleEntity, customer: String, customerId: String, payment: String) = launchAction {
-        require(com.sanvalero.boutiquestyle.domain.usecase.isValidDominicanId(customerId)) { "La cédula o RNC no es válido." }
+        require(com.sanvalero.boutiquestyle.domain.usecase.isValidDominicanId(customerId)) { "La cédula debe tener 11 dígitos o el RNC 9, con su dígito verificador correcto." }
         repository.updateSale(sale.copy(customerName = customer.trim(), customerCedulaOrRnc = customerId, paymentMethod = payment))
         _message.value = "Venta actualizada."
     }
@@ -155,7 +166,7 @@ class MainViewModel @Inject constructor(
         require(customer.isNotBlank()) { "El nombre del cliente es obligatorio." }
         require(phone.isNotBlank()) { "El teléfono es obligatorio." }
         require(quantity > 0 && paid in 0.0..total) { "Revisa la cantidad y el abono." }
-        require(com.sanvalero.boutiquestyle.domain.usecase.isValidDominicanId(cedula)) { "La cédula o RNC no es válida." }
+        require(com.sanvalero.boutiquestyle.domain.usecase.isValidDominicanId(cedula)) { "La cédula debe tener 11 dígitos o el RNC 9, con su dígito verificador correcto." }
         val due = LocalDate.now().plusDays(30).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         repository.createLayaway(
             LayawayEntity(

@@ -91,6 +91,20 @@ class DefaultStoreRepository @Inject constructor(
         return user.takeIf { verify(password, it.passwordHash) }
     }
 
+    override suspend fun registerCustomer(username: String, password: String, name: String): UserEntity {
+        initialize()
+        return database.withTransaction {
+            val normalizedUsername = username.trim()
+            val normalizedName = name.trim()
+            require(normalizedUsername.length >= 3) { "El usuario debe tener al menos 3 caracteres." }
+            require(password.length >= 6) { "La contraseña debe tener al menos 6 caracteres." }
+            require(normalizedName.isNotBlank()) { "Escribe tu nombre." }
+            require(dao.findUser(normalizedUsername) == null) { "Ese usuario ya está registrado." }
+            val customer = UserEntity(username = normalizedUsername, passwordHash = hash(password), role = "CUSTOMER", name = normalizedName)
+            customer.copy(id = dao.insertUser(customer))
+        }
+    }
+
     override fun garments() = dao.observeGarments()
     override fun variants() = dao.observeVariants()
     override fun variants(garmentId: Long) = dao.observeVariantsForGarment(garmentId)
@@ -183,6 +197,9 @@ class DefaultStoreRepository @Inject constructor(
             "La venta necesita artículos con cantidad y precio válidos."
         }
         require(request.customerName.isNotBlank()) { "El nombre del cliente es obligatorio." }
+        require(com.sanvalero.boutiquestyle.domain.usecase.isValidDominicanId(request.customerId)) {
+            "La cédula o el RNC no es válido. Verifica el número y su dígito verificador."
+        }
         request.items.groupBy { it.variant.id }.forEach { (id, lines) ->
             val quantity = lines.sumOf { it.quantity }
             check(dao.decrementStock(id, quantity) == 1) { "Inventario insuficiente para una variante de la venta." }
@@ -213,7 +230,7 @@ class DefaultStoreRepository @Inject constructor(
     override suspend fun updateSale(sale: SaleEntity) = database.withTransaction {
         require(sale.customerName.isNotBlank()) { "El nombre del cliente es obligatorio." }
         require(com.sanvalero.boutiquestyle.domain.usecase.isValidDominicanId(sale.customerCedulaOrRnc)) {
-            "La cédula o RNC no es válido."
+            "La cédula o el RNC no es válido. Verifica el dígito verificador."
         }
         dao.updateSale(sale.copy(customerCedulaOrRnc = sale.customerCedulaOrRnc.filter(Char::isDigit)))
     }
@@ -227,6 +244,9 @@ class DefaultStoreRepository @Inject constructor(
 
     override suspend fun createLayaway(layaway: LayawayEntity): Long = database.withTransaction {
         require(layaway.quantity > 0) { "La cantidad debe ser mayor que cero." }
+        require(com.sanvalero.boutiquestyle.domain.usecase.isValidDominicanId(layaway.customerCedula)) {
+            "La cédula o el RNC no es válido. Verifica el número y su dígito verificador."
+        }
         require(layaway.totalAmount > 0.0) { "El total del apartado debe ser mayor que cero." }
         require(layaway.amountPaid in 0.0..layaway.totalAmount) { "El abono debe estar entre cero y el total." }
         check(dao.decrementStock(layaway.variantId, layaway.quantity) == 1) { "Inventario insuficiente para el apartado." }
