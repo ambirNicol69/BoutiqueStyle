@@ -612,10 +612,20 @@ fun ReportsScreen(viewModel: MainViewModel = hiltViewModel()) {
     val filteredState = remember(state, filteredSales) {
         state.copy(sales = filteredSales, saleItems = state.saleItems.filter { item -> filteredSales.any { it.id == item.saleId } })
     }
-    LazyColumn(Modifier.fillMaxSize().padding(18.dp), contentPadding = PaddingValues(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text("Reportes", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("Consulta ventas e inventario por período.") }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.fillMaxWidth().height(112.dp).background(Color(0xFFD93682)).padding(horizontal = 18.dp), contentAlignment = Alignment.CenterStart) {
+                Text("Reportes", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth().background(Color(0xFFFFC9DF)).padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Período", Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Color(0xFF24151D))
+                Text("Ventas: ${filteredSales.size}", fontWeight = FontWeight.Bold, color = Color(0xFF24151D))
+            }
+        }
+        item {
+            Row(Modifier.padding(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 InputField(fromDate, { fromDate = it }, "Desde dd/MM/yyyy", modifier = Modifier.weight(1f))
                 InputField(throughDate, { throughDate = it }, "Hasta dd/MM/yyyy", modifier = Modifier.weight(1f))
             }

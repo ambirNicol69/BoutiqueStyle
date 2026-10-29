@@ -194,9 +194,6 @@ private fun CustomerAccessDialog(
                 )
                 if (passwordMismatch) Text("Las contraseñas no coinciden.", color = MaterialTheme.colorScheme.error)
                 message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                TextButton(onClick = { registering = !registering }) {
-                    Text(if (registering) "Ya tengo una cuenta" else "Crear una cuenta nueva")
-                }
             }
         },
         confirmButton = {
