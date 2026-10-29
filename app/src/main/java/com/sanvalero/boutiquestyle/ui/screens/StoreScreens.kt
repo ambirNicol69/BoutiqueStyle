@@ -58,7 +58,7 @@ fun LoginScreen(
                 OutlinedTextField(password, { password = it }, label = { Text("Contraseña") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
                 if (message != null) Text(message.orEmpty(), color = MaterialTheme.colorScheme.error)
                 Button(onClick = { onLogin(username, password) }, modifier = Modifier.fillMaxWidth()) { Text("Iniciar sesión") }
-                OutlinedButton(onClick = { onCustomerLogin(username, password) }, modifier = Modifier.fillMaxWidth()) { Text("Iniciar sesión") }
+                OutlinedButton(onClick = onBrowseStore, modifier = Modifier.fillMaxWidth()) { Text("Registrar") }
                 TextButton(onClick = onBrowseStore) { Text("Explorar tienda como cliente") }
             }
         }
