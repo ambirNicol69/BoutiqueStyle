@@ -84,7 +84,7 @@ class MainViewModel @Inject constructor(
     fun deleteGarment(garment: GarmentEntity) = launchAction { repository.removeGarment(garment) }
 
     fun saveVariant(variant: VariantEntity) = launchAction {
-        require(variant.size.isNotBlank() && variant.color.isNotBlank() && variant.sku.isNotBlank()) { "Completa talla, color y SKU." }
+        require(variant.size.isNotBlank() && variant.color.isNotBlank()) { "Completa talla y color." }
         repository.saveVariant(variant)
         _message.value = "Variante guardada."
     }

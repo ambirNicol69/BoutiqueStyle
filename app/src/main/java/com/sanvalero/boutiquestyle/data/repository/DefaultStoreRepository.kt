@@ -12,6 +12,7 @@ import com.sanvalero.boutiquestyle.domain.model.*
 import com.sanvalero.boutiquestyle.domain.repository.StoreRepository
 import com.sanvalero.boutiquestyle.domain.usecase.CalculateSaleTotalsUseCase
 import kotlinx.coroutines.flow.Flow
+import java.util.UUID
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -141,17 +142,22 @@ class DefaultStoreRepository @Inject constructor(
 
     override suspend fun saveVariant(variant: VariantEntity) {
         require(variant.stock >= 0) { "El inventario no puede ser negativo." }
-        if (variant.id == 0L) dao.insertVariant(variant) else dao.updateVariant(variant)
+        val variantWithSku = variant.copy(sku = variant.sku.ifBlank { generateSku() })
+        if (variant.id == 0L) dao.insertVariant(variantWithSku) else dao.updateVariant(variantWithSku)
     }
 
     override suspend fun registerStockProduct(garment: GarmentEntity, variants: List<VariantEntity>) = database.withTransaction {
         require(garment.name.isNotBlank() && garment.category.isNotBlank()) { "Completa nombre y categoría." }
         require(garment.basePrice > 0.0) { "El precio debe ser mayor que cero." }
         require(variants.isNotEmpty()) { "Agrega al menos una talla y color." }
-        require(variants.all { it.size.isNotBlank() && it.color.isNotBlank() && it.sku.isNotBlank() && it.stock >= 0 }) { "Revisa talla, color, SKU y cantidad de cada variante." }
+        require(variants.all { it.size.isNotBlank() && it.color.isNotBlank() && it.stock >= 0 }) { "Revisa talla, color y cantidad de cada variante." }
         val garmentId = dao.insertGarment(garment)
-        variants.forEach { dao.insertVariant(it.copy(id = 0, garmentId = garmentId)) }
+        variants.forEach { variant ->
+            dao.insertVariant(variant.copy(id = 0, garmentId = garmentId, sku = variant.sku.ifBlank { generateSku() }))
+        }
     }
+
+    private fun generateSku(): String = "BS-${UUID.randomUUID().toString().replace("-", "").take(12).uppercase()}"
 
     override suspend fun requestStock(request: StockRequestEntity) {
         require(request.quantity > 0) { "La cantidad solicitada debe ser mayor que cero." }

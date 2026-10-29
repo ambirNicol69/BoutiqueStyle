@@ -58,7 +58,6 @@ fun LoginScreen(
                 OutlinedTextField(password, { password = it }, label = { Text("Contraseña") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
                 if (message != null) Text(message.orEmpty(), color = MaterialTheme.colorScheme.error)
                 Button(onClick = { onLogin(username, password) }, modifier = Modifier.fillMaxWidth()) { Text("Iniciar sesión") }
-                OutlinedButton(onClick = onBrowseStore, modifier = Modifier.fillMaxWidth()) { Text("Registrar") }
                 TextButton(onClick = onBrowseStore) { Text("Explorar tienda como cliente") }
             }
         }
@@ -290,7 +289,6 @@ private fun VariantDialog(garment: GarmentEntity, initial: VariantEntity?, onDis
     var size by remember(initial) { mutableStateOf(initial?.size ?: "M") }
     var color by remember(initial) { mutableStateOf(initial?.color.orEmpty()) }
     var stock by remember(initial) { mutableStateOf(initial?.stock?.toString() ?: "0") }
-    var sku by remember(initial) { mutableStateOf(initial?.sku.orEmpty()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("${if (initial == null) "Nueva variante" else "Editar variante"} · ${garment.name}") },
@@ -299,12 +297,12 @@ private fun VariantDialog(garment: GarmentEntity, initial: VariantEntity?, onDis
                 InputField(size, { size = it }, "Talla")
                 InputField(color, { color = it }, "Color")
                 InputField(stock, { stock = it }, "Existencias", KeyboardType.Number)
-                InputField(sku, { sku = it }, "SKU")
+                Text(initial?.let { "SKU: ${it.sku}" } ?: "El SKU se generará automáticamente al guardar.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                onSave(VariantEntity(id = initial?.id ?: 0, garmentId = garment.id, size = size, color = color, stock = stock.toIntOrNull() ?: 0, sku = sku, barcode = initial?.barcode))
+                onSave(VariantEntity(id = initial?.id ?: 0, garmentId = garment.id, size = size, color = color, stock = stock.toIntOrNull() ?: 0, sku = initial?.sku.orEmpty(), barcode = initial?.barcode))
             }) { Text("Guardar") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
