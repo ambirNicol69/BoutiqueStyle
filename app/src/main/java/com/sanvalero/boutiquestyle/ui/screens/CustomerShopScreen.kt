@@ -174,6 +174,8 @@ private fun CustomerAccessDialog(
     var name by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var passwordMismatch by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (registering) "Crear cuenta de cliente" else "Iniciar sesión para comprar") },
@@ -183,6 +185,14 @@ private fun CustomerAccessDialog(
                 OutlinedTextField(username, { username = it }, label = { Text("Usuario") }, singleLine = true)
                 OutlinedTextField(password, { password = it }, label = { Text("Contraseña (mínimo 6 caracteres)") }, singleLine = true,
                     visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                if (registering) OutlinedTextField(
+                    confirmPassword,
+                    { confirmPassword = it; passwordMismatch = false },
+                    label = { Text("Confirmar contraseña") },
+                    singleLine = true,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation()
+                )
+                if (passwordMismatch) Text("Las contraseñas no coinciden.", color = MaterialTheme.colorScheme.error)
                 message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 TextButton(onClick = { registering = !registering }) {
                     Text(if (registering) "Ya tengo una cuenta" else "Crear una cuenta nueva")
@@ -191,7 +201,9 @@ private fun CustomerAccessDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                if (registering) onRegister(username, password, name) else onLogin(username, password)
+                if (registering) {
+                    if (password == confirmPassword) onRegister(username, password, name) else passwordMismatch = true
+                } else onLogin(username, password)
             }) { Text(if (registering) "Crear cuenta" else "Entrar") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Ahora no") } }

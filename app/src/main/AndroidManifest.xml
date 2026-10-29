@@ -2,8 +2,8 @@
     <application
         android:name=".BoutiqueStyleApp"
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher"
+        android:icon="@drawable/logo_boutiquestyle_launcher"
+        android:roundIcon="@drawable/logo_boutiquestyle_launcher"
         android:label="BoutiqueStyle"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">

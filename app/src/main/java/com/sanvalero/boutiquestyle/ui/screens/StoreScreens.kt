@@ -52,15 +52,14 @@ fun LoginScreen(
         Card(Modifier.fillMaxWidth().padding(24.dp), shape = RoundedCornerShape(28.dp)) {
             Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Image(painterResource(R.drawable.logo_boutiquestyle), "Logo de BoutiqueStyle", Modifier.size(150.dp))
-                Text("Bienvenida", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Bienvenido/a", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                 Text("Entra a tu cuenta o explora la tienda", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(username, { username = it }, label = { Text("Usuario") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(password, { password = it }, label = { Text("Contraseña") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
                 if (message != null) Text(message.orEmpty(), color = MaterialTheme.colorScheme.error)
-                Button(onClick = { onLogin(username, password) }, modifier = Modifier.fillMaxWidth()) { Text("Entrar como administradora / empleado") }
-                OutlinedButton(onClick = { onCustomerLogin(username, password) }, modifier = Modifier.fillMaxWidth()) { Text("Entrar como cliente") }
+                Button(onClick = { onLogin(username, password) }, modifier = Modifier.fillMaxWidth()) { Text("Iniciar sesión") }
+                OutlinedButton(onClick = { onCustomerLogin(username, password) }, modifier = Modifier.fillMaxWidth()) { Text("Iniciar sesión") }
                 TextButton(onClick = onBrowseStore) { Text("Explorar tienda como cliente") }
-                Text("Acceso inicial: admin / admin123", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
