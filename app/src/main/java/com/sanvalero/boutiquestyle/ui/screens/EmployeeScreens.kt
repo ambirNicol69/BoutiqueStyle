@@ -326,8 +326,8 @@ private fun NewProductDialog(onDismiss: () -> Unit, onSave: (GarmentEntity, List
             if (name.isBlank() || category.isBlank() || parsedPrice == null || parsedPrice <= 0 || !validVariants || imageUri == null) error = "Completa los datos, agrega una foto y revisa cada talla, color y cantidad."
             else {
                 val garment = GarmentEntity(name = name.trim(), brand = brand.trim(), category = category.trim(), basePrice = parsedPrice, imageUri = imageUri)
-                val stockVariants = variants.mapIndexed { index, row ->
-                    VariantEntity(garmentId = 0, size = row.size.trim(), color = row.color.trim(), stock = row.quantity.toInt(), sku = "BS-${System.currentTimeMillis()}-${index + 1}")
+                val stockVariants = variants.map { row ->
+                    VariantEntity(garmentId = 0, size = row.size.trim(), color = row.color.trim(), stock = row.quantity.toInt(), sku = "")
                 }
                 onSave(garment, stockVariants)
             }

@@ -99,24 +99,59 @@ class ReportExporter(private val context: Context) {
 
     private fun savePdf(title: String, rows: List<String>, chartData: List<Pair<String, Int>>?): Uri {
         val document = PdfDocument()
-        val pageRows = rows.chunked(34).ifEmpty { listOf(emptyList()) }
+        val pageRows = rows.chunked(24).ifEmpty { listOf(emptyList()) }
         val logo = context.resources.openRawResource(R.drawable.logo_boutiquestyle).use { BitmapFactory.decodeStream(it) }
         pageRows.forEachIndexed { index, lines ->
             val page = document.startPage(PdfDocument.PageInfo.Builder(595, 842, index + 1).create())
             val canvas = page.canvas
-            val heading = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(62, 39, 35); textSize = 19f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
-            val body = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(55, 45, 42); textSize = 10.5f }
-            if (logo != null) canvas.drawBitmap(logo, null, android.graphics.Rect(32, 22, 104, 94), Paint(Paint.ANTI_ALIAS_FLAG))
-            canvas.drawText("BoutiqueStyle", 120f, 48f, heading)
-            canvas.drawText(title, 120f, 68f, body)
-            canvas.drawText("Emitido: ${formatDate(System.currentTimeMillis())}", 120f, 84f, body)
-            canvas.drawLine(32f, 110f, 563f, 110f, body)
-            var y = 137f
-            lines.forEach { line ->
-                wrap(line, 92).forEach { piece ->
-                    canvas.drawText(piece, 38f, y, body)
-                    y += 18f
+            val heading = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE; textSize = 30f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
+            val body = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(35, 27, 31); textSize = 9f }
+            val grid = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(215, 211, 213); strokeWidth = 0.7f; style = Paint.Style.STROKE }
+            val titleBand = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(217, 54, 130); style = Paint.Style.FILL }
+            val columnBand = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(255, 201, 223); style = Paint.Style.FILL }
+            canvas.drawRect(0f, 0f, 595f, 112f, titleBand)
+            canvas.drawText(title, 28f, 69f, heading)
+            val emitted = Paint(body).apply { color = android.graphics.Color.WHITE; textSize = 9f }
+            canvas.drawText("BoutiqueStyle  ·  Emitido: ${formatDate(System.currentTimeMillis())}", 30f, 96f, emitted)
+            val headers = when {
+                title.contains("Inventario", true) -> listOf("Prenda", "Talla", "Color", "SKU", "Existencias")
+                title.contains("Ventas", true) -> listOf("Fecha", "Cliente", "Identificación", "Detalle y total")
+                else -> listOf("Detalle del reporte")
+            }
+            val left = 28f
+            val right = 567f
+            val tableWidth = right - left
+            val widths = when (headers.size) {
+                5 -> listOf(145f, 54f, 90f, 135f, 115f)
+                4 -> listOf(74f, 126f, 105f, 234f)
+                else -> listOf(tableWidth)
+            }
+            var y = 130f
+            fun drawRow(cells: List<String>, header: Boolean = false) {
+                val rowHeight = if (header) 30f else 24f
+                canvas.drawRect(left, y, right, y + rowHeight, if (header) columnBand else Paint().apply { color = android.graphics.Color.WHITE; style = Paint.Style.FILL })
+                canvas.drawRect(left, y, right, y + rowHeight, grid)
+                var x = left
+                widths.forEachIndexed { column, width ->
+                    if (column > 0) canvas.drawLine(x, y, x, y + rowHeight, grid)
+                    val cellText = cells.getOrElse(column) { "" }.replace('\\n', ' ')
+                    val cellPaint = if (header) Paint(body).apply { typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) } else body
+                    canvas.save()
+                    canvas.clipRect(x + 4f, y, x + width - 3f, y + rowHeight)
+                    canvas.drawText(cellText, x + 5f, y + if (header) 19f else 16f, cellPaint)
+                    canvas.restore()
+                    x += width
                 }
+                y += rowHeight
+            }
+            drawRow(headers, header = true)
+            lines.forEach { line ->
+                val cells = when (headers.size) {
+                    5 -> line.split(" | ", limit = 5)
+                    4 -> line.split(" | ", limit = 4).let { if (it.size == 1) listOf("", "", "", line) else it }
+                    else -> listOf(line)
+                }
+                drawRow(cells)
             }
             if (index == 0 && !chartData.isNullOrEmpty()) drawTopProductsChart(canvas, chartData, heading, body)
             body.textAlign = Paint.Align.RIGHT

@@ -12,7 +12,7 @@ import com.sanvalero.boutiquestyle.domain.model.*
 import com.sanvalero.boutiquestyle.domain.repository.StoreRepository
 import com.sanvalero.boutiquestyle.domain.usecase.CalculateSaleTotalsUseCase
 import kotlinx.coroutines.flow.Flow
-import java.util.UUID
+import java.text.Normalizer
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -142,7 +142,8 @@ class DefaultStoreRepository @Inject constructor(
 
     override suspend fun saveVariant(variant: VariantEntity) {
         require(variant.stock >= 0) { "El inventario no puede ser negativo." }
-        val variantWithSku = variant.copy(sku = variant.sku.ifBlank { generateSku() })
+        val garment = dao.getGarment(variant.garmentId) ?: error("No se encontró la prenda para generar el SKU.")
+        val variantWithSku = variant.copy(sku = variant.sku.ifBlank { generateSku(garment.name, variant.size, variant.color) })
         if (variant.id == 0L) dao.insertVariant(variantWithSku) else dao.updateVariant(variantWithSku)
     }
 
@@ -153,11 +154,33 @@ class DefaultStoreRepository @Inject constructor(
         require(variants.all { it.size.isNotBlank() && it.color.isNotBlank() && it.stock >= 0 }) { "Revisa talla, color y cantidad de cada variante." }
         val garmentId = dao.insertGarment(garment)
         variants.forEach { variant ->
-            dao.insertVariant(variant.copy(id = 0, garmentId = garmentId, sku = variant.sku.ifBlank { generateSku() }))
+            dao.insertVariant(variant.copy(id = 0, garmentId = garmentId, sku = variant.sku.ifBlank { generateSku(garment.name, variant.size, variant.color) }))
         }
     }
 
-    private fun generateSku(): String = "BS-${UUID.randomUUID().toString().replace("-", "").take(12).uppercase()}"
+    private fun generateSku(garmentName: String, size: String, color: String): String {
+        val nameCode = normalizedWords(garmentName).mapNotNull { it.firstOrNull() }.joinToString("")
+        val colorWords = normalizedWords(color)
+        val colorCode = if (colorWords.size > 1) {
+            colorWords.mapNotNull { it.firstOrNull() }.joinToString("")
+        } else {
+            val letters = colorWords.firstOrNull().orEmpty()
+            val lastConsonant = letters.lastOrNull { it !in "AEIOU" }
+            listOfNotNull(letters.firstOrNull(), lastConsonant).joinToString("")
+        }
+        val sizeCode = normalizeCode(size)
+        require(nameCode.isNotBlank() && sizeCode.isNotBlank() && colorCode.isNotBlank()) {
+            "No se pudo generar el SKU. Revisa nombre, talla y color."
+        }
+        return "BS-$nameCode-$sizeCode-$colorCode"
+    }
+
+    private fun normalizedWords(value: String): List<String> = normalizeCode(value)
+        .split(Regex("[^A-Z0-9]+"))
+        .filter(String::isNotBlank)
+
+    private fun normalizeCode(value: String): String = Normalizer.normalize(value.trim().uppercase(), Normalizer.Form.NFD)
+        .replace(Regex("\\p{Mn}+"), "")
 
     override suspend fun requestStock(request: StockRequestEntity) {
         require(request.quantity > 0) { "La cantidad solicitada debe ser mayor que cero." }
