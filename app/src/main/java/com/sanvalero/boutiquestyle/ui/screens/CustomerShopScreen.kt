@@ -81,8 +81,15 @@ fun CustomerShopScreen(
     var orderPayment by remember { mutableStateOf("") }
     var orderDate by remember { mutableStateOf(0L) }
     var showCustomerAccess by remember { mutableStateOf(false) }
+    var pendingCheckout by remember { mutableStateOf(false) }
     LaunchedEffect(customer) {
-        if (customer != null) showCustomerAccess = false
+        if (customer != null) {
+            showCustomerAccess = false
+            if (pendingCheckout) {
+                pendingCheckout = false
+                checkout = true
+            }
+        }
     }
     if (completed) {
         OrderComplete(cart, state, orderCustomer, orderId, orderPayment, orderDate) { completed = false; checkout = false; cart = emptyList(); tab = ShopTab.HOME }
@@ -131,7 +138,10 @@ fun CustomerShopScreen(
                 onBrowse = { tab = ShopTab.HOME },
                 onCheckout = {
                     viewModel.clearMessage()
-                    if (customer == null) showCustomerAccess = true else checkout = true
+                    if (customer == null) {
+                        pendingCheckout = true
+                        showCustomerAccess = true
+                    } else checkout = true
                 },
                 modifier = Modifier.padding(padding))
             tab == ShopTab.CATEGORIES -> CategoryScreen(state.garments.map { it.category }.distinct().sorted(), state,
@@ -157,7 +167,7 @@ fun CustomerShopScreen(
     }
     if (showCustomerAccess) CustomerAccessDialog(
         message = message,
-        onDismiss = { showCustomerAccess = false },
+        onDismiss = { showCustomerAccess = false; pendingCheckout = false },
         onLogin = onLogin,
         onRegister = onRegister
     )
@@ -194,6 +204,9 @@ private fun CustomerAccessDialog(
                 )
                 if (passwordMismatch) Text("Las contraseñas no coinciden.", color = MaterialTheme.colorScheme.error)
                 message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = { registering = !registering; passwordMismatch = false }) {
+                    Text(if (registering) "¿Ya tienes cuenta? Inicia sesión" else "¿No tienes cuenta? Regístrate")
+                }
             }
         },
         confirmButton = {
