@@ -136,7 +136,7 @@ class ReportExporter(private val context: Context) {
                 var x = left
                 widths.forEachIndexed { column, width ->
                     if (column > 0) canvas.drawLine(x, y, x, y + rowHeight, grid)
-                    val cellText = cells.getOrElse(column) { "" }.replace('\\n', ' ')
+                    val cellText = cells.getOrElse(column) { "" }.replace("\n", " ")
                     val cellPaint = if (header) Paint(body).apply { typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) } else body
                     canvas.save()
                     canvas.clipRect(x + 4f, y, x + width - 3f, y + rowHeight)
