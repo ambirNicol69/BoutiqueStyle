@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
@@ -110,6 +111,7 @@ class ReportExporter(private val context: Context) {
             val titleBand = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(217, 54, 130); style = Paint.Style.FILL }
             val columnBand = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(255, 201, 223); style = Paint.Style.FILL }
             canvas.drawRect(0f, 0f, 595f, 112f, titleBand)
+            canvas.drawBitmap(logo, null, RectF(507f, 15f, 567f, 75f), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
             canvas.drawText(title, 28f, 69f, heading)
             val emitted = Paint(body).apply { color = android.graphics.Color.WHITE; textSize = 9f }
             canvas.drawText("BoutiqueStyle  ·  Emitido: ${formatDate(System.currentTimeMillis())}", 30f, 96f, emitted)
